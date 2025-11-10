@@ -24,6 +24,7 @@ import type {
 import { RECIPES } from "./recipes";
 import { SCORING } from "./scoring";
 import { createInventory } from "./inventory";
+import { createQueueState } from "./ticketing";
 
 // ============================================================================
 // CONSTANTS - Configuration constants for the game
@@ -91,6 +92,48 @@ export {
   addStock,
 } from "./inventory";
 export type { StockCheckResult } from "./inventory";
+
+// Re-export LLM functions for UI consumption
+export {
+  generateCustomer,
+  generateDrinkReaction,
+  generateCustomerGreeting,
+} from "./llm";
+
+// Re-export function calling system
+export {
+  TOOLS,
+  executeFunctionCall,
+  parseOrder,
+  createTicket,
+  checkAllergens,
+  completeOrder,
+} from "./function-calling";
+export type {
+  ParsedOrder,
+  OrderTicket,
+  AllergenCheckResult,
+  OrderCompletion,
+} from "./function-calling";
+
+// Re-export ticketing system
+export {
+  createQueueState,
+  addTicket,
+  getNextTicket,
+  startTicket,
+  completeTicket,
+  cancelTicket,
+  getTicket,
+  getActiveTicket,
+  getPendingTickets,
+  getCompletedTickets,
+  getEstimatedWaitTime,
+  clearCompleted,
+  resetQueue,
+  getQueueStats,
+} from "./ticketing";
+export type { QueueStats } from "./ticketing";
 
 // ============================================================================
 // VALIDATION - Ensure data integrity
@@ -247,9 +290,9 @@ function generateFeedback(quality: number, drinkType: DrinkType): string {
   const drinkName = RECIPES[drinkType].name;
 
   if (quality >= SCORING.EXCELLENT_THRESHOLD) {
-    return `Perfection! This ${drinkName} is exactly what your customer dreamed of. ⭐`;
+    return `Perfect ${drinkName}. Your customer is delighted.`;
   } else if (quality >= SCORING.GOOD_THRESHOLD) {
-    return `Excellent ${drinkName}! Just a hair away from perfection.`;
+    return `Well-crafted ${drinkName}. Very close to ideal.`;
   } else if (quality >= SCORING.ACCEPTABLE_THRESHOLD) {
     return `Good ${drinkName}. Solid technique with minor issues.`;
   } else if (quality >= SCORING.DECENT_THRESHOLD) {
@@ -273,6 +316,7 @@ export function createInitialState(): GameState {
     money: 0,
     drinksServed: 0,
     inventory: createInventory(),
+    queue: createQueueState(),
   };
 }
 

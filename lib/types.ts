@@ -11,6 +11,10 @@ export type DrinkCategory = "espresso-based" | "pour-over" | "immersion";
 export type DrinkType = "espresso" | "latte" | "cappuccino" | "pourover" | "aeropress";
 export type MilkType = "none" | "whole" | "skim" | "oat" | "almond";
 
+// Validation constants
+export const VALID_DRINKS: DrinkType[] = ["espresso", "latte", "cappuccino", "pourover", "aeropress"];
+export const VALID_MILK_TYPES: Exclude<MilkType, "none">[] = ["whole", "skim", "oat", "almond"];
+
 export interface BrewParameters {
   grindSize: GrindSize;
   temperature: number;
@@ -96,6 +100,10 @@ export interface Customer {
   order: string;
   drinkType: DrinkType;
   payment: number;
+  personality?: string;
+  mood?: "happy" | "neutral" | "stressed" | "tired";
+  budget?: number;
+  allergens?: string[];
 }
 
 export interface GameState {
@@ -105,6 +113,27 @@ export interface GameState {
   money: number;
   drinksServed: number;
   inventory: Inventory;
+  queue?: QueueState; // Optional for backward compatibility
+}
+
+// Queue types (re-exported from ticketing.ts for convenience)
+export interface QueueState {
+  tickets: OrderTicket[];
+  activeTicketId: string | null;
+  completedToday: number;
+  totalRevenue: number;
+}
+
+export interface OrderTicket {
+  id: string;
+  customerName: string;
+  drinkType: DrinkType;
+  milkType?: MilkType;
+  notes?: string;
+  priority: "normal" | "high";
+  status: "pending" | "in_progress" | "completed" | "cancelled";
+  createdAt: number;
+  completedAt?: number;
 }
 
 // Inventory types (re-exported from inventory.ts for convenience)

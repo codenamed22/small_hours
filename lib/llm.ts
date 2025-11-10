@@ -1,4 +1,11 @@
 import OpenAI from "openai";
+import type { DrinkType, Customer } from "./types";
+import { RECIPES } from "./recipes";
+import {
+  generateCustomerProfile,
+  calculatePayment,
+  type GeneratedCustomerProfile,
+} from "./customer-generator";
 
 // Initialize the OpenRouter client (uses OpenAI SDK with custom base URL)
 let openrouterClient: OpenAI | null = null;
@@ -25,6 +32,14 @@ export function getOpenRouterClient(): OpenAI {
 // Get the model to use (defaults to Kimi K2 Thinking)
 export function getModel(): string {
   return process.env.LLM_MODEL || "moonshotai/kimi-k2-thinking";
+}
+
+// Sanitize user input to prevent prompt injection
+function sanitizeInput(input: string, maxLength = 100): string {
+  return input
+    .replace(/[<>]/g, '')
+    .replace(/\n/g, ' ')
+    .slice(0, maxLength);
 }
 
 // Types for our game
@@ -102,13 +117,17 @@ export async function generateDrinkReaction(
     model,
     messages: [
       {
+        role: "system",
+        content: "You are a customer at a cozy neighborhood café. Stay in character. Be natural and concise."
+      },
+      {
         role: "user",
-        content: `You are ${customerName}. You just received a ${qualityDescriptor} ${drinkType} at a café.
+        content: `You are ${sanitizeInput(customerName)}. You just received a ${qualityDescriptor} ${drinkType} at a café.
 
 React in 1-2 sentences. Be natural and reflect the quality of the drink.`,
       },
     ],
-    max_tokens: 256,
+    max_tokens: 128,
     temperature: 0.8,
   });
 
@@ -118,4 +137,114 @@ React in 1-2 sentences. Be natural and reflect the quality of the drink.`,
     reaction,
     satisfaction: drinkQuality,
   };
+}
+
+/**
+ * Generate a dynamic customer with personality
+ * Uses RNG to create detailed profile, LLM to generate natural dialogue
+ */
+export async function generateCustomer(
+  preferredDrink?: DrinkType,
+  seed?: number
+): Promise<Customer> {
+  // Generate detailed customer profile using RNG
+  const profile = generateCustomerProfile(seed, preferredDrink);
+  const recipe = RECIPES[profile.drinkType];
+
+  const client = getOpenRouterClient();
+  const model = getModel();
+
+  try {
+    // Build context for LLM based on profile
+    const contextParts = [
+      `You are ${profile.name}, ${profile.personality}`,
+      `Mood: ${profile.mood}`,
+      profile.archetype.timeConstraint !== "normal" && `Time: ${profile.archetype.timeConstraint}`,
+      profile.allergens.length > 0 && `Allergies: ${profile.allergens.join(", ")}`,
+    ].filter(Boolean);
+
+    const completion = await client.chat.completions.create({
+      model,
+      messages: [
+        {
+          role: "system",
+          content: `You are a customer at a cozy café called "Small Hours".
+Generate ONLY a JSON object with your order (no other text):
+
+{
+  "order": "Natural language order for the drink, 1 sentence, stay in character"
+}
+
+Character: ${contextParts.join(". ")}.
+You want: ${recipe.name}
+${profile.milkPreference ? `Preferred milk: ${profile.milkPreference}` : ""}
+
+Be natural and concise. Match your mood and time constraint.`
+        },
+        {
+          role: "user",
+          content: "Place your order"
+        }
+      ],
+      max_tokens: 80,
+      temperature: 0.9,
+    });
+
+    const response = completion.choices[0]?.message?.content || "";
+
+    // Parse the JSON response
+    let order: string;
+    try {
+      const jsonMatch = response.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        order = parsed.order || `I'd like a ${recipe.name}, please.`;
+      } else {
+        throw new Error("No JSON found");
+      }
+    } catch (parseError) {
+      console.error("Failed to parse LLM response:", response);
+      // Fallback based on archetype
+      if (profile.archetype.timeConstraint === "rushed") {
+        order = `Quick ${recipe.name}, please!`;
+      } else if (profile.archetype.timeConstraint === "relaxed") {
+        order = `I'll have a ${recipe.name}, please. Take your time.`;
+      } else {
+        order = `Can I get a ${recipe.name}?`;
+      }
+    }
+
+    return {
+      name: sanitizeInput(profile.name, 50),
+      order: sanitizeInput(order, 200),
+      drinkType: profile.drinkType,
+      payment: calculatePayment(profile.drinkType, profile.budget),
+      personality: profile.personality,
+      mood: profile.mood,
+      budget: profile.budget,
+      allergens: profile.allergens,
+    };
+
+  } catch (error) {
+    console.error("Error generating customer:", error);
+
+    // Fallback to profile without LLM
+    let order: string;
+    if (profile.archetype.timeConstraint === "rushed") {
+      order = `${recipe.name}, fast please!`;
+    } else {
+      order = `I'd like a ${recipe.name}, please.`;
+    }
+
+    return {
+      name: profile.name,
+      order,
+      drinkType: profile.drinkType,
+      payment: calculatePayment(profile.drinkType, profile.budget),
+      personality: profile.personality,
+      mood: profile.mood,
+      budget: profile.budget,
+      allergens: profile.allergens,
+    };
+  }
 }

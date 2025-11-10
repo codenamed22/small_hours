@@ -17,25 +17,139 @@ import {
   depleteStock,
   getTotalBeans,
   getLowStockWarnings,
+  addTicket,
+  getNextTicket,
+  startTicket,
+  completeTicket,
+  getPendingTickets,
+  getQueueStats,
+  type OrderTicket,
+  type AllergenCheckResult,
 } from "@/lib/game-engine";
 
 export default function Game() {
   const [gameState, setGameState] = useState<GameState>(createInitialState());
-  const [selectedDrink, setSelectedDrink] = useState<DrinkType>("espresso");
   const [showHelp, setShowHelp] = useState(false);
+  const [isGeneratingCustomer, setIsGeneratingCustomer] = useState(false);
+  const [allergenCheck, setAllergenCheck] = useState<AllergenCheckResult | null>(null);
+  const [isCheckingAllergens, setIsCheckingAllergens] = useState(false);
 
-  const startNewOrder = () => {
+  const startNewOrder = async () => {
     setShowHelp(false); // Reset help for new order
-    setGameState((prev) => ({
-      ...prev,
-      customer: createStaticCustomer(selectedDrink),
-      brewParams: getDefaultParameters(selectedDrink), // Reset params for drink type
-      result: null,
-    }));
+    setIsGeneratingCustomer(true);
+    setAllergenCheck(null); // Reset allergen check
+
+    try {
+      // Call API route to generate a dynamic customer (server-side)
+      // Customer decides what drink they want, not us!
+      const response = await fetch("/api/generate-customer", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({}), // No drink preference - let RNG decide
+      });
+
+      if (!response.ok) {
+        throw new Error(`API returned ${response.status}`);
+      }
+
+      const data = await response.json();
+      const customer = data.customer;
+
+      // Create a ticket for this order
+      const ticketResponse = await fetch("/api/process-order", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          action: "create_ticket",
+          customer,
+        }),
+      });
+
+      let ticket: OrderTicket | null = null;
+      if (ticketResponse.ok) {
+        const ticketData = await ticketResponse.json();
+        ticket = ticketData.ticket;
+      }
+
+      setGameState((prev) => {
+        let newQueue = prev.queue;
+        if (ticket && newQueue) {
+          newQueue = addTicket(newQueue, ticket);
+          newQueue = startTicket(newQueue, ticket.id);
+        }
+
+        return {
+          ...prev,
+          customer,
+          brewParams: getDefaultParameters(customer.drinkType), // Reset params for what customer wants
+          result: null,
+          queue: newQueue,
+        };
+      });
+    } catch (error) {
+      console.error("Failed to generate customer:", error);
+
+      // Fallback to static customer if API fails - random drink
+      const randomDrink = ["espresso", "latte", "cappuccino", "pourover", "aeropress"][
+        Math.floor(Math.random() * 5)
+      ] as DrinkType;
+
+      setGameState((prev) => ({
+        ...prev,
+        customer: createStaticCustomer(randomDrink),
+        brewParams: getDefaultParameters(randomDrink),
+        result: null,
+      }));
+    } finally {
+      setIsGeneratingCustomer(false);
+    }
   };
 
-  const handleBrew = () => {
+  const handleBrew = async () => {
     if (!gameState.customer) return;
+
+    // Check allergens if customer has any
+    if (gameState.customer.allergens && gameState.customer.allergens.length > 0) {
+      setIsCheckingAllergens(true);
+      try {
+        const response = await fetch("/api/process-order", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            action: "check_allergens",
+            drinkType: gameState.customer.drinkType,
+            milkType: gameState.brewParams.milkType,
+            customerAllergens: gameState.customer.allergens,
+          }),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const check: AllergenCheckResult = data.allergenCheck;
+          setAllergenCheck(check);
+
+          if (!check.safe) {
+            alert(`⚠️ ALLERGEN WARNING!\n\n${check.blockers.join("\n")}\n\nPlease adjust the drink parameters before brewing.`);
+            setIsCheckingAllergens(false);
+            return;
+          }
+
+          if (check.warnings.length > 0) {
+            console.warn("Allergen warnings:", check.warnings);
+          }
+        }
+      } catch (error) {
+        console.error("Failed to check allergens:", error);
+      } finally {
+        setIsCheckingAllergens(false);
+      }
+    }
 
     // Check if we have enough stock
     const stockCheck = checkStock(
@@ -70,13 +184,25 @@ export default function Game() {
     if (!gameState.result || !gameState.customer) return;
 
     setShowHelp(false); // Reset help when serving
-    setGameState((prev) => ({
-      ...prev,
-      money: prev.money + prev.customer!.payment,
-      drinksServed: prev.drinksServed + 1,
-      customer: null,
-      result: null,
-    }));
+    setAllergenCheck(null); // Reset allergen check
+
+    setGameState((prev) => {
+      let newQueue = prev.queue;
+
+      // Complete the active ticket if there is one
+      if (newQueue && newQueue.activeTicketId) {
+        newQueue = completeTicket(newQueue, newQueue.activeTicketId, prev.customer!.payment);
+      }
+
+      return {
+        ...prev,
+        money: prev.money + prev.customer!.payment,
+        drinksServed: prev.drinksServed + 1,
+        customer: null,
+        result: null,
+        queue: newQueue,
+      };
+    });
   };
 
   const updateBrewParam = <K extends keyof BrewParameters>(
@@ -102,9 +228,7 @@ export default function Game() {
 
   const milkTypes: MilkType[] = ["none", "whole", "skim", "oat", "almond"];
 
-  const drinkTypes: DrinkType[] = ["espresso", "latte", "cappuccino", "pourover", "aeropress"];
-
-  const currentDrinkType = gameState.customer?.drinkType || selectedDrink;
+  const currentDrinkType = gameState.customer?.drinkType || "espresso";
   const recipe = RECIPES[currentDrinkType];
   const requiredParams = getRequiredParameters(currentDrinkType);
 
@@ -120,7 +244,7 @@ export default function Game() {
             <h1 className="text-5xl font-bold text-amber-900 mb-2">
               Small Hours
             </h1>
-            <p className="text-amber-700">Phase 1+: Enhanced Brewing Mechanics</p>
+            <p className="text-amber-700">A Coffee Craft Simulator</p>
           </div>
 
           {/* Stats Bar */}
@@ -137,7 +261,53 @@ export default function Game() {
                 {gameState.drinksServed}
               </span>
             </div>
+            {gameState.queue && (
+              <div>
+                <span className="text-gray-600">Queue:</span>
+                <span className="ml-2 text-2xl font-bold text-blue-600">
+                  {getPendingTickets(gameState.queue).length}
+                </span>
+              </div>
+            )}
           </div>
+
+          {/* Queue Panel */}
+          {gameState.queue && getPendingTickets(gameState.queue).length > 0 && (
+            <div className="bg-blue-50/90 backdrop-blur rounded-xl shadow-lg p-4 mb-6">
+              <h3 className="text-lg font-bold text-blue-900 mb-3 flex items-center gap-2">
+                <span>📋</span>
+                Waiting Customers
+              </h3>
+              <div className="space-y-2">
+                {getPendingTickets(gameState.queue).slice(0, 3).map((ticket, idx) => (
+                  <div
+                    key={ticket.id}
+                    className="bg-white p-3 rounded-lg flex justify-between items-center border-l-4 border-blue-400"
+                  >
+                    <div>
+                      <div className="font-semibold text-gray-800">{ticket.customerName}</div>
+                      <div className="text-sm text-gray-600">
+                        {RECIPES[ticket.drinkType].name}
+                        {ticket.priority === "high" && (
+                          <span className="ml-2 text-xs bg-red-100 text-red-800 px-2 py-1 rounded">
+                            ⚡ RUSHED
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="text-sm text-gray-500">
+                      #{idx + 1} in queue
+                    </div>
+                  </div>
+                ))}
+                {getPendingTickets(gameState.queue).length > 3 && (
+                  <div className="text-center text-sm text-gray-600">
+                    + {getPendingTickets(gameState.queue).length - 3} more waiting...
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           <div className="grid md:grid-cols-2 gap-6">
             {/* Left Column: Customer & Brewing */}
@@ -199,47 +369,101 @@ export default function Game() {
 
                 {gameState.customer ? (
                   <div>
-                    <p className="text-lg mb-2">
-                      <span className="font-semibold">{gameState.customer.name}:</span>
-                      <span className="ml-2 italic">&quot;{gameState.customer.order}&quot;</span>
+                    <div className="flex items-center gap-2 mb-3">
+                      <span className="text-2xl">
+                        {gameState.customer.mood === "happy" ? "😊" :
+                         gameState.customer.mood === "stressed" ? "😰" :
+                         gameState.customer.mood === "tired" ? "😴" : "😐"}
+                      </span>
+                      <div className="flex-1">
+                        <p className="text-lg font-semibold">{gameState.customer.name}</p>
+                        {gameState.customer.personality && (
+                          <p className="text-xs text-gray-500 italic">
+                            {gameState.customer.personality}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <p className="text-base mb-3 bg-amber-50 p-3 rounded-lg border-l-4 border-amber-400">
+                      &quot;{gameState.customer.order}&quot;
                     </p>
-                    <p className="text-sm text-gray-600 mb-2">
-                      Drink: <span className="font-semibold">{recipe.name}</span>
-                    </p>
-                    <p className="text-sm text-gray-600">
-                      Payment: ${gameState.customer.payment.toFixed(2)}
-                    </p>
+
+                    {/* Allergen Warning */}
+                    {gameState.customer.allergens && gameState.customer.allergens.length > 0 && (
+                      <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-lg">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-red-600 font-bold">⚠️ ALLERGENS</span>
+                          {allergenCheck && allergenCheck.safe && (
+                            <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
+                              ✓ Checked Safe
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-sm text-red-800">
+                          {gameState.customer.allergens.map((allergen) => (
+                            <span key={allergen} className="inline-block bg-red-100 px-2 py-1 rounded mr-2 mb-1">
+                              {allergen}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="flex justify-between text-sm text-gray-600 border-t pt-2">
+                      <span>
+                        Drink: <span className="font-semibold">{recipe.name}</span>
+                      </span>
+                      <span>
+                        Payment: <span className="font-semibold text-green-600">${gameState.customer.payment.toFixed(2)}</span>
+                      </span>
+                    </div>
                   </div>
                 ) : (
                   <div className="text-center py-4">
-                    <p className="text-gray-500 mb-4">Select a drink and welcome a customer</p>
-
-                    {/* Drink Selection */}
-                    <div className="mb-4">
-                      <label className="block text-sm font-semibold mb-2 text-gray-700">
-                        Drink Type
-                      </label>
-                      <select
-                        value={selectedDrink}
-                        onChange={(e) => setSelectedDrink(e.target.value as DrinkType)}
-                        className="w-full px-4 py-2 rounded-lg text-gray-800 font-medium border border-amber-200"
-                      >
-                        {drinkTypes.map((drink) => (
-                          <option key={drink} value={drink}>
-                            {RECIPES[drink].name} - ${createStaticCustomer(drink).payment.toFixed(2)}
-                          </option>
-                        ))}
-                      </select>
-                      <p className="text-xs text-gray-500 mt-2 italic">
-                        {RECIPES[selectedDrink].description}
-                      </p>
-                    </div>
+                    {isGeneratingCustomer ? (
+                      <div className="py-8">
+                        <div className="text-6xl mb-4">🚪</div>
+                        <p className="text-gray-600 mb-2 font-medium">A customer is approaching...</p>
+                        <p className="text-xs text-gray-500 italic">They'll tell you what they want</p>
+                      </div>
+                    ) : (
+                      <div className="py-8">
+                        <div className="text-6xl mb-4">☕</div>
+                        <p className="text-gray-600 mb-4">
+                          Your café is ready.<br />
+                          Who will walk through the door?
+                        </p>
+                      </div>
+                    )}
 
                     <button
                       onClick={startNewOrder}
-                      className="bg-gradient-to-r from-amber-500 to-orange-500 text-white px-6 py-3 rounded-xl font-semibold hover:from-amber-600 hover:to-orange-600 transition-all shadow-lg"
+                      disabled={isGeneratingCustomer}
+                      className="bg-gradient-to-r from-amber-500 to-orange-500 text-white px-6 py-3 rounded-xl font-semibold hover:from-amber-600 hover:to-orange-600 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:from-amber-400 disabled:to-orange-400 flex items-center justify-center gap-2 mx-auto"
                     >
-                      Welcome Next Customer
+                      {isGeneratingCustomer ? (
+                        <>
+                          <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                            <circle
+                              className="opacity-25"
+                              cx="12"
+                              cy="12"
+                              r="10"
+                              stroke="currentColor"
+                              strokeWidth="4"
+                              fill="none"
+                            />
+                            <path
+                              className="opacity-75"
+                              fill="currentColor"
+                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                            />
+                          </svg>
+                          Customer arriving...
+                        </>
+                      ) : (
+                        "Open the Door"
+                      )}
                     </button>
                   </div>
                 )}
@@ -416,9 +640,32 @@ export default function Game() {
                     {/* Brew Button */}
                     <button
                       onClick={handleBrew}
-                      className="w-full bg-white text-amber-900 font-bold px-8 py-4 rounded-xl hover:bg-amber-50 transition-all shadow-lg text-lg mt-4"
+                      disabled={isCheckingAllergens}
+                      className="w-full bg-white text-amber-900 font-bold px-8 py-4 rounded-xl hover:bg-amber-50 transition-all shadow-lg text-lg mt-4 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                     >
-                      {recipe.category === "espresso-based" ? "Pull Shot" : `Brew ${recipe.name}`}
+                      {isCheckingAllergens ? (
+                        <>
+                          <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                            <circle
+                              className="opacity-25"
+                              cx="12"
+                              cy="12"
+                              r="10"
+                              stroke="currentColor"
+                              strokeWidth="4"
+                              fill="none"
+                            />
+                            <path
+                              className="opacity-75"
+                              fill="currentColor"
+                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                            />
+                          </svg>
+                          Checking Safety...
+                        </>
+                      ) : (
+                        recipe.category === "espresso-based" ? "Pull Shot" : `Brew ${recipe.name}`
+                      )}
                     </button>
                   </div>
                 </div>
@@ -487,12 +734,12 @@ export default function Game() {
 
               {!gameState.result && !gameState.customer && (
                 <div className="bg-white/90 backdrop-blur rounded-2xl shadow-xl p-6 text-center">
-                  <div className="text-6xl mb-4">👋</div>
+                  <div className="text-6xl mb-4">☕</div>
                   <h3 className="text-xl font-semibold text-gray-700 mb-2">
-                    Ready to start?
+                    Waiting for customers
                   </h3>
                   <p className="text-gray-600">
-                    Select a drink and click &quot;Welcome Next Customer&quot; to begin!
+                    Open the door and see who walks in
                   </p>
                 </div>
               )}
