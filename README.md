@@ -1,110 +1,77 @@
 # Small Hours ☕
 
-A Coffee Shop Simulator where customers have stories and craft matters. Built with Next.js, TypeScript, and AI-powered character interactions.
+A coffee shop simulator where brewing matters and customers have stories.
 
-**Current Status:** Phase 0 - Foundation Complete ✅
+**Current Status:** Phase 0 - 50% Complete | **[Read STATUS.md for full details →](./STATUS.md)**
 
 ---
 
 ## Quick Start
 
-### 1. Install Dependencies
 ```bash
+# Install
 npm install
-```
 
-### 2. Configure API Key
-```bash
+# Configure (add your OpenRouter API key)
 cp .env.example .env.local
-```
 
-Edit `.env.local` and add your OpenRouter API key:
-```env
-OPENROUTER_API_KEY=sk-or-v1-your-key-here
-```
-
-Get your API key at: https://openrouter.ai/keys
-
-### 3. Run Development Server
-```bash
+# Run
 npm run dev
 ```
 
-Open http://localhost:3000 and test the LLM integration!
+Visit http://localhost:3000/game to play.
 
 ---
 
-## What You Get
+## What Works Now
 
-- ✨ **Next.js 14** with TypeScript and Tailwind CSS
-- 🤖 **OpenRouter Integration** - Works with Claude, GPT-4, Gemini, and more
-- 🎨 **Beautiful UI** - Coffee-themed design ready for gameplay
-- 📖 **Phased Development** - Clear roadmap from MVP to full game
+- **5 Drink Types:** Espresso, Latte, Cappuccino, Pour Over, Aeropress
+- **Quality Scoring:** Tolerance-based scoring (0-100) with component breakdown
+- **Dynamic UI:** Controls change based on drink type
+- **Production Code:** Clean architecture, TypeScript, no tests yet
+
+---
+
+## What's Missing
+
+- Tests (0% coverage)
+- Inventory system
+- LLM integration in game (exists but not connected)
+- Customer personas and memory
+- Ticketing/queue system
+- Allergen safety system
+- Save/load
+
+**See [STATUS.md](./STATUS.md) for complete analysis, roadmap, and next steps.**
 
 ---
 
 ## Tech Stack
 
-- **Framework:** Next.js 14 (App Router)
-- **Language:** TypeScript
-- **Styling:** Tailwind CSS
-- **AI:** OpenRouter (default: Kimi K2 Thinking)
+- Next.js 16.0.1 + Turbopack
+- TypeScript (strict mode)
+- Node.js 24.11.0 LTS
+- OpenRouter (Kimi K2 Thinking)
+- Tailwind CSS
 
 ---
 
-## LLM Configuration
+## Documentation
 
-By default, the project uses **Kimi K2 Thinking** (great for character interactions).
-
-To switch models, edit `.env.local`:
-```env
-# Use a different model
-LLM_MODEL=anthropic/claude-3.5-sonnet
-
-# Or use a cheaper model for testing
-LLM_MODEL=anthropic/claude-3-haiku
-```
-
-See all models: https://openrouter.ai/models
+- **[STATUS.md](./STATUS.md)** - Complete status, gaps, roadmap (start here)
+- **[Plan.md](./Plan.md)** - Original design document
 
 ---
 
-## Development Commands
+## Development
 
 ```bash
-npm run dev        # Start dev server
-npm run build      # Build for production
-npm run type-check # Run TypeScript checks
-npm run lint       # Run ESLint
+npm run dev         # Start dev server
+npm run build       # Build for production
+npm run type-check  # TypeScript validation
+npm run lint        # ESLint
 ```
 
 ---
 
-## Project Structure
-
-```
-small_hours/
-├── app/
-│   ├── api/test-llm/    # LLM API endpoint
-│   ├── globals.css      # Styles
-│   ├── layout.tsx       # Root layout
-│   └── page.tsx         # Home page
-├── lib/
-│   └── llm.ts          # LLM helper functions
-├── PHASES.md           # Development roadmap
-└── Plan.md            # Original design doc
-```
-
----
-
-## Next Steps
-
-See [PHASES.md](./PHASES.md) for the complete development roadmap.
-
-**Up Next:** Phase 1 - Minimal Craft Loop (brewing mechanics!)
-
----
-
-## License
-
-See [LICENSE](./LICENSE) file for details.
+Built with [Next.js](https://nextjs.org) • [OpenRouter](https://openrouter.ai) • [Tailwind](https://tailwindcss.com)

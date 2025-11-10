@@ -175,14 +175,22 @@ export default function Home() {
           {/* Next Steps */}
           <div className="text-center">
             <div className="inline-block bg-white/90 backdrop-blur rounded-2xl shadow-lg p-6 border border-amber-100">
-              <p className="text-gray-700 flex items-center gap-2 justify-center">
+              <p className="text-gray-700 flex items-center gap-2 justify-center mb-4">
                 <span className="text-2xl">🎯</span>
                 <span className="font-medium">
                   {llmResponse
-                    ? "Phase 0 Complete! Ready to move on to Phase 1: Building the minimal craft loop"
+                    ? "Phase 0 Complete! Ready to move on to Phase 1"
                     : "Once Phase 0 is complete, we'll move on to Phase 1: Building the minimal craft loop"}
                 </span>
               </p>
+              {llmResponse && (
+                <a
+                  href="/game"
+                  className="inline-block bg-gradient-to-r from-amber-500 to-orange-500 text-white px-8 py-3 rounded-xl font-semibold hover:from-amber-600 hover:to-orange-600 transition-all shadow-lg"
+                >
+                  Play Phase 1: Brewing Mechanics →
+                </a>
+              )}
             </div>
           </div>
         </div>
