@@ -9,11 +9,11 @@
 
 ## Executive Summary
 
-**What Works:** Production-grade rule engine with 5 drink types, clean modular architecture, working game loop with brewing mechanics, LLM integration tested.
+**What Works:** Production-grade rule engine with 5 drink types, clean modular architecture, working game loop with brewing mechanics, LLM integration tested, **77 tests passing**, **complete inventory system with stock management**.
 
-**Critical Gaps:** No tests, no actual LLM integration in game, missing core features from Phase 0/1 plan (inventory, ticketing, customers with memory, money management), architecture diverged significantly from design document.
+**Critical Gaps:** No actual LLM integration in game, missing core features from Phase 0/1 plan (ticketing, customers with memory, orders/pricing system), architecture diverged significantly from design document.
 
-**Status:** We built a **brewing simulator** when the plan calls for a **café management sim**. The brewing engine is excellent, but it's only one piece of the puzzle.
+**Status:** We built a **brewing simulator** when the plan calls for a **café management sim**. The brewing engine is excellent, inventory is complete, tests are in place. Moving toward full café sim.
 
 ---
 
@@ -45,16 +45,19 @@
 
 ### ⚠️ What's Problematic
 
-1. **No Tests (CRITICAL)**
+1. **~~No Tests~~ ✅ TESTS COMPLETE**
    ```bash
-   $ find . -name "*.test.*" | grep -v node_modules
-   # (empty)
+   $ npm test
+   ✓ lib/inventory.test.ts (30 tests)
+   ✓ lib/scoring.test.ts (17 tests)
+   ✓ lib/game-engine.test.ts (30 tests)
+   Test Files  3 passed (3)
+   Tests  77 passed (77)
    ```
-   - Plan calls for unit tests in Phase 0 exit criteria
-   - No tests for rule engine, scoring, validation
-   - No tests for LLM parsing, allergen gates
-   - Cannot verify correctness beyond manual testing
-   - **Impact:** Can't refactor safely, bugs could slip through
+   - ✅ Tests for rule engine, scoring, validation
+   - ✅ Tests for inventory management
+   - ❌ Still need: LLM parsing tests, allergen tests, integration tests
+   - **Impact:** Can now refactor core systems safely
 
 2. **Architecture Divergence from Plan (CRITICAL)**
 
@@ -87,7 +90,7 @@
    - **Impact:** No narrative, no personality, no replayability
 
 4. **Missing Core Systems**
-   - ❌ Inventory management (beans, milk, syrups, pastries)
+   - ✅ Inventory management (beans, milk, syrups, pastries) - **COMPLETE**
    - ❌ Ticketing system (queue, prep time, station bottlenecks)
    - ❌ Order parsing (`parse_order` tool)
    - ❌ Pricing system (COGS, margins, profitability)
@@ -98,8 +101,8 @@
    - ❌ Memory system for regulars
 
 5. **Game State Issues**
-   - `GameState` in types.ts has: customer, brewParams, result, money, drinksServed
-   - Plan calls for: day, mode, cash, reputation, queue, tickets, inventory, menu, customers, events
+   - `GameState` in types.ts has: customer, brewParams, result, money, drinksServed, **inventory** ✅
+   - Plan calls for: day, mode, cash, reputation, queue, tickets, ~~inventory~~, menu, customers, events
    - **Gap:** Missing 70% of planned state structure
    - No progression (days, upgrades, unlocks)
    - No failure states (out of stock, bankruptcy)
@@ -147,34 +150,43 @@
 ### Core Game Logic ✅
 | File | Lines | Status | Notes |
 |------|-------|--------|-------|
-| `lib/types.ts` | 107 | ✅ Good | All shared types, clean |
+| `lib/types.ts` | 123 | ✅ Good | All shared types, +inventory types |
 | `lib/scoring.ts` | 96 | ✅ Good | Scoring logic isolated |
 | `lib/recipes.ts` | 390 | ✅ Good | 5 drinks, configurable |
-| `lib/game-engine.ts` | 329 | ✅ Good | Clean engine, validation |
+| `lib/game-engine.ts` | 342 | ✅ Good | Clean engine, +inventory integration |
+| `lib/inventory.ts` | 303 | ✅ Good | **NEW** - Complete stock management |
 | `lib/llm.ts` | 122 | ⚠️ Unused | Not integrated in game |
 
 ### UI Pages ⚠️
 | File | Lines | Status | Notes |
 |------|-------|--------|-------|
 | `app/page.tsx` | 200 | ⚠️ Test Only | LLM test, not game flow |
-| `app/game/page.tsx` | 496 | ⚠️ Incomplete | Brewing only, no systems |
+| `app/game/page.tsx` | 562 | ✅ Good | Brewing + **inventory UI** integrated |
 | `app/layout.tsx` | - | ✅ Good | Standard layout |
 | `app/api/test-llm/route.ts` | - | ⚠️ Test Only | Not used in game |
 
+### Tests ✅
+| File | Lines | Status | Notes |
+|------|-------|--------|-------|
+| `lib/scoring.test.ts` | 188 | ✅ Good | **NEW** - 17 tests passing |
+| `lib/game-engine.test.ts` | 392 | ✅ Good | **NEW** - 30 tests passing |
+| `lib/inventory.test.ts` | 402 | ✅ Good | **NEW** - 30 tests passing |
+| `vitest.config.ts` | 12 | ✅ Good | **NEW** - Test configuration |
+
 ### Missing Critical Files ❌
-- `lib/inventory.ts` - Stock management
+- ~~`lib/inventory.ts`~~ ✅ **DONE**
 - `lib/orders.ts` - Order parsing and tickets
 - `lib/pricing.ts` - Cost/revenue calculations
 - `lib/persistence.ts` - Save/load
 - `lib/memory.ts` - Customer memory store
-- `__tests__/**/*.test.ts` - Any tests at all
 - `lib/validation.ts` - Input sanitization
+- Integration tests for LLM + game loop
 
 ---
 
 ## Phase Completion Assessment
 
-### Phase 0 - Foundations ⚠️ PARTIAL (50%)
+### Phase 0 - Foundations ⚠️ PARTIAL (65%)
 
 **Exit Criteria Status:**
 | Criterion | Status | Evidence |
@@ -182,26 +194,27 @@
 | ✅ Complete one short day end-to-end | ❌ No | Can brew drinks, but no day structure, prep, debrief |
 | ✅ Allergen tests pass 100% | ❌ No | No allergen system exists |
 | ✅ LLM never mutates state without tools | ⚠️ N/A | LLM not integrated, so technically passes (vacuously) |
-| ✅ Deterministic sim core with tests | ⚠️ Partial | Engine is deterministic, but NO TESTS |
+| ✅ Deterministic sim core with tests | ✅ YES | Engine is deterministic, **77 tests passing** |
 | ✅ Tooling API wired with function calling | ❌ No | No tools implemented (parse_order, price_quote, etc.) |
 | ✅ Seeded RNG | ❌ No | No RNG implemented |
 | ✅ Audit log of tool calls | ❌ No | No audit mechanism |
 
 **What We Have:**
 - ✅ Brewing engine (excellent)
+- ✅ **Inventory system (complete with UI)**
+- ✅ **77 tests passing (scoring, game-engine, inventory)**
 - ✅ LLM integration (OpenRouter with Kimi K2)
 - ✅ Basic web UI
 - ✅ Money counter
 
 **What's Missing:**
-- ❌ Tickets, timers, inventory
+- ❌ Tickets, timers
 - ❌ Allergen system
 - ❌ Function calling tools
-- ❌ Tests
 - ❌ Save/load
 - ❌ Audit log
 
-**Assessment:** Phase 0 is NOT complete. We have a beautiful brewing engine but none of the systems integration.
+**Assessment:** Phase 0 is 65% complete. Brewing engine + inventory + tests are solid foundation. Need systems integration.
 
 ### Phase 1 - Text MVP ❌ NOT STARTED
 
@@ -344,11 +357,11 @@
 ## Key Metrics
 
 ### Current State
-- **Lines of Code:** ~1,440 (lib + app)
-- **Test Coverage:** 0%
+- **Lines of Code:** ~2,800 (lib + app + tests)
+- **Test Coverage:** 77 tests passing (scoring.ts ✅, game-engine.ts ✅, inventory.ts ✅)
 - **TypeScript Errors:** 0
 - **Build Time:** <1s (Turbopack)
-- **Phase Completion:** Phase 0 at 50%, Phase 1 at 0%
+- **Phase Completion:** Phase 0 at 65%, Phase 1 at 0%
 
 ### Target State (Phase 0 Complete)
 - **Lines of Code:** ~3,000 (estimate)
@@ -361,15 +374,15 @@
 
 ## Conclusion
 
-**What we built:** A beautiful, production-grade brewing engine with excellent architecture and clean code.
+**What we built:** A beautiful, production-grade brewing engine with excellent architecture, clean code, **complete inventory system**, and **77 passing tests**.
 
-**What we need:** Inventory, ticketing, LLM integration, customers, money management, allergens, tests, and save/load to make it a café simulator.
+**What we need:** Ticketing, LLM integration in game loop, customers with memory, orders/pricing system, allergens, and save/load to make it a café simulator.
 
-**The good news:** The hardest part (rule engine) is done and done right. The architecture is solid. We can build on this foundation.
+**The good news:** The hardest parts (rule engine, inventory, tests) are done and done right. The architecture is solid. We can build on this foundation.
 
-**The path forward:** Complete Phase 0 properly before adding more features. Write tests. Integrate LLM. Add the missing systems. Then polish.
+**The path forward:** Complete Phase 0 properly before adding more features. Integrate LLM into game. Add ticketing/orders. Add allergen system. Then polish.
 
-**Estimated time to Phase 0 complete:** 3-4 weeks of focused work.
+**Estimated time to Phase 0 complete:** 2-3 weeks of focused work (down from 3-4 weeks).
 
 **Estimated time to Phase 1 complete:** 2-3 additional weeks.
 
@@ -377,10 +390,12 @@
 
 ## Next Session Tasks
 
-1. Set up Vitest and write first tests for scoring.ts
-2. Design inventory system schema
-3. Implement `parse_order` function with LLM
-4. Create customer persona templates
-5. Wire LLM into game loop
+1. ✅ ~~Set up Vitest and write first tests~~ **COMPLETE** (77 tests passing)
+2. ✅ ~~Design and implement inventory system~~ **COMPLETE** (full system with UI)
+3. ⏭️ Implement `parse_order` function with LLM
+4. ⏭️ Create customer persona templates with memory
+5. ⏭️ Wire LLM into game loop (replace static customer)
+6. ⏭️ Add ticketing system (queue, prep time)
+7. ⏭️ Add allergen system (safety-critical)
 
-**Focus:** Tests, Inventory, LLM Integration (in that order)
+**Focus:** LLM Integration → Orders/Ticketing → Allergens (in that order)

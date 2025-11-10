@@ -23,6 +23,7 @@ import type {
 
 import { RECIPES } from "./recipes";
 import { SCORING } from "./scoring";
+import { createInventory } from "./inventory";
 
 // ============================================================================
 // CONSTANTS - Configuration constants for the game
@@ -79,6 +80,17 @@ export type {
 
 // Re-export RECIPES for UI consumption
 export { RECIPES } from "./recipes";
+
+// Re-export inventory functions for UI consumption
+export {
+  checkStock,
+  depleteStock,
+  getTotalBeans,
+  getAvailableMilkTypes,
+  getLowStockWarnings,
+  addStock,
+} from "./inventory";
+export type { StockCheckResult } from "./inventory";
 
 // ============================================================================
 // VALIDATION - Ensure data integrity
@@ -260,6 +272,7 @@ export function createInitialState(): GameState {
     result: null,
     money: 0,
     drinksServed: 0,
+    inventory: createInventory(),
   };
 }
 

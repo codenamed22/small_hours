@@ -13,6 +13,10 @@ import {
   createStaticCustomer,
   getRequiredParameters,
   getDefaultParameters,
+  checkStock,
+  depleteStock,
+  getTotalBeans,
+  getLowStockWarnings,
 } from "@/lib/game-engine";
 
 export default function Game() {
@@ -33,11 +37,32 @@ export default function Game() {
   const handleBrew = () => {
     if (!gameState.customer) return;
 
+    // Check if we have enough stock
+    const stockCheck = checkStock(
+      gameState.inventory,
+      gameState.customer.drinkType,
+      gameState.brewParams
+    );
+
+    if (!stockCheck.available) {
+      alert(`Out of stock: ${stockCheck.missing.join(", ")}`);
+      return;
+    }
+
+    // Brew the drink
     const result = brewDrink(gameState.customer.drinkType, gameState.brewParams);
+
+    // Deplete stock
+    const newInventory = depleteStock(
+      gameState.inventory,
+      gameState.customer.drinkType,
+      gameState.brewParams
+    );
 
     setGameState((prev) => ({
       ...prev,
       result,
+      inventory: newInventory,
     }));
   };
 
@@ -117,6 +142,54 @@ export default function Game() {
           <div className="grid md:grid-cols-2 gap-6">
             {/* Left Column: Customer & Brewing */}
             <div className="space-y-6">
+              {/* Inventory Panel */}
+              <div className="bg-white/90 backdrop-blur rounded-2xl shadow-xl p-6">
+                <h2 className="text-2xl font-bold text-amber-900 mb-4 flex items-center gap-2">
+                  <span>📦</span>
+                  Inventory
+                </h2>
+
+                <div className="space-y-3">
+                  {/* Coffee Beans */}
+                  <div className="bg-amber-50 p-3 rounded-lg">
+                    <div className="flex justify-between items-center">
+                      <span className="font-semibold text-gray-700">Coffee Beans</span>
+                      <span className="text-lg font-bold text-amber-600">
+                        {getTotalBeans(gameState.inventory)}g
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Milk Inventory */}
+                  {Object.entries(gameState.inventory.milks)
+                    .filter(([type, amount]) => type !== "none" && amount > 0)
+                    .map(([type, amount]) => (
+                      <div key={type} className="bg-blue-50 p-3 rounded-lg">
+                        <div className="flex justify-between items-center">
+                          <span className="font-semibold text-gray-700 capitalize">
+                            {type} Milk
+                          </span>
+                          <span className="text-lg font-bold text-blue-600">
+                            {amount}ml
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+
+                {/* Low Stock Warnings */}
+                {getLowStockWarnings(gameState.inventory).length > 0 && (
+                  <div className="mt-4 p-3 bg-red-100 border border-red-300 text-red-800 rounded-lg">
+                    <div className="font-bold mb-2">⚠️ Low Stock Warnings</div>
+                    {getLowStockWarnings(gameState.inventory).map((warning, i) => (
+                      <div key={i} className="text-sm">
+                        • {warning}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               {/* Customer Card */}
               <div className="bg-white/90 backdrop-blur rounded-2xl shadow-xl p-6">
                 <h2 className="text-2xl font-bold text-amber-900 mb-4 flex items-center gap-2">

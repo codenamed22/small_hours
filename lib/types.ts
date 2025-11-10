@@ -104,4 +104,19 @@ export interface GameState {
   result: BrewResult | null;
   money: number;
   drinksServed: number;
+  inventory: Inventory;
+}
+
+// Inventory types (re-exported from inventory.ts for convenience)
+export interface BeanStock {
+  name: string;
+  grams: number;
+  roastDate: string;
+}
+
+export interface Inventory {
+  beans: BeanStock[];
+  milks: Record<MilkType, number>;
+  syrups: Record<string, number>;
+  food: Record<string, number>;
 }
