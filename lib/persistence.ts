@@ -152,6 +152,11 @@ export function deserializeGameState(serialized: SerializedGameState): GameState
  * Save game state to LocalStorage
  */
 export function saveGame(state: GameState): boolean {
+  // Check if localStorage is available
+  if (typeof localStorage === "undefined") {
+    return false;
+  }
+
   try {
     const saveData: SaveData = {
       version: VERSION,
@@ -175,6 +180,11 @@ export function saveGame(state: GameState): boolean {
  * Load game state from LocalStorage
  */
 export function loadGame(): GameState | null {
+  // Check if localStorage is available
+  if (typeof localStorage === "undefined") {
+    return null;
+  }
+
   try {
     const json = localStorage.getItem(STORAGE_KEY);
     if (!json) return null;
@@ -198,6 +208,9 @@ export function loadGame(): GameState | null {
  * Check if a save exists
  */
 export function hasSave(): boolean {
+  if (typeof localStorage === "undefined") {
+    return false;
+  }
   return localStorage.getItem(STORAGE_KEY) !== null;
 }
 
@@ -205,6 +218,10 @@ export function hasSave(): boolean {
  * Get save metadata without loading full state
  */
 export function getSaveInfo(): { timestamp: number; version: number } | null {
+  if (typeof localStorage === "undefined") {
+    return null;
+  }
+
   try {
     const json = localStorage.getItem(STORAGE_KEY);
     if (!json) return null;
@@ -224,6 +241,9 @@ export function getSaveInfo(): { timestamp: number; version: number } | null {
  * Delete saved game
  */
 export function deleteSave(): void {
+  if (typeof localStorage === "undefined") {
+    return;
+  }
   localStorage.removeItem(STORAGE_KEY);
 }
 
@@ -231,6 +251,10 @@ export function deleteSave(): void {
  * Export save data as downloadable JSON
  */
 export function exportSave(): string | null {
+  if (typeof localStorage === "undefined") {
+    return null;
+  }
+
   try {
     const json = localStorage.getItem(STORAGE_KEY);
     return json;
@@ -244,6 +268,10 @@ export function exportSave(): string | null {
  * Import save data from JSON string
  */
 export function importSave(json: string): boolean {
+  if (typeof localStorage === "undefined") {
+    return false;
+  }
+
   try {
     // Validate JSON
     const saveData: SaveData = JSON.parse(json);

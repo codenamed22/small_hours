@@ -18,11 +18,9 @@ import {
   getTotalBeans,
   getLowStockWarnings,
   addTicket,
-  getNextTicket,
   startTicket,
   completeTicket,
   getPendingTickets,
-  getQueueStats,
   type OrderTicket,
   type AllergenCheckResult,
   isReturningCustomer,
@@ -30,23 +28,26 @@ import {
   getCustomer,
   getCustomerInsights,
   getMemoryStats,
+  startService,
+  endService,
+  startNewDay,
+  recordCustomer,
+  restockInventory,
+  getRestockCost,
+  getDaySummary,
+  getPerformanceEmoji,
+  getPerformanceDescription,
 } from "@/lib/game-engine";
 import {
   saveGame,
   loadGame,
-  hasSave,
   deleteSave,
   exportSave,
   importSave,
-  getSaveInfo,
 } from "@/lib/persistence";
 
 export default function Game() {
-  const [gameState, setGameState] = useState<GameState>(() => {
-    // Load saved game on initial mount
-    const saved = loadGame();
-    return saved || createInitialState();
-  });
+  const [gameState, setGameState] = useState<GameState>(createInitialState());
   const [showHelp, setShowHelp] = useState(false);
   const [isGeneratingCustomer, setIsGeneratingCustomer] = useState(false);
   const [allergenCheck, setAllergenCheck] = useState<AllergenCheckResult | null>(null);
@@ -54,6 +55,14 @@ export default function Game() {
   const [showMemoryStats, setShowMemoryStats] = useState(false);
   const [lastSaveTime, setLastSaveTime] = useState<number | null>(null);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Load saved game on client mount only
+  useEffect(() => {
+    const saved = loadGame();
+    if (saved) {
+      setGameState(saved);
+    }
+  }, []);
 
   // Auto-save game state (debounced)
   useEffect(() => {
@@ -146,7 +155,59 @@ export default function Game() {
     input.click();
   };
 
+  // Day phase handlers
+  const handleStartDay = () => {
+    if (!gameState.dayState) return;
+
+    setGameState((prev) => ({
+      ...prev,
+      dayState: prev.dayState ? startService(prev.dayState) : prev.dayState,
+    }));
+  };
+
+  const handleEndDay = () => {
+    if (!gameState.dayState) return;
+
+    setGameState((prev) => ({
+      ...prev,
+      dayState: prev.dayState ? endService(prev.dayState) : prev.dayState,
+    }));
+  };
+
+  const handleRestock = () => {
+    if (!gameState.dayState) return;
+
+    const cost = getRestockCost(gameState.dayState.dayNumber);
+
+    if (gameState.money < cost) {
+      alert(`Not enough money! Restock costs $${cost.toFixed(2)}`);
+      return;
+    }
+
+    setGameState((prev) => ({
+      ...prev,
+      money: prev.money - cost,
+      inventory: restockInventory(prev.inventory, prev.dayState?.dayNumber || 1),
+    }));
+  };
+
+  const handleNextDay = () => {
+    if (!gameState.dayState) return;
+
+    setGameState((prev) => ({
+      ...prev,
+      dayState: prev.dayState ? startNewDay(prev.dayState) : prev.dayState,
+      customer: null,
+      result: null,
+    }));
+  };
+
   const startNewOrder = async () => {
+    // Only allow customers during service phase
+    if (gameState.dayState && gameState.dayState.phase !== "service") {
+      return;
+    }
+
     setShowHelp(false); // Reset help for new order
     setIsGeneratingCustomer(true);
     setAllergenCheck(null); // Reset allergen check
@@ -301,11 +362,19 @@ export default function Game() {
     setGameState((prev) => {
       let newQueue = prev.queue;
       let newMemory = prev.customerMemory;
+      let newDayState = prev.dayState;
 
       // Complete the active ticket if there is one
       if (newQueue && newQueue.activeTicketId) {
         newQueue = completeTicket(newQueue, newQueue.activeTicketId, prev.customer!.payment);
       }
+
+      // Check if customer is returning/regular
+      const isReturning = newMemory ? isReturningCustomer(newMemory, prev.customer!.name) : false;
+      const customerProfile = newMemory ? getCustomer(newMemory, prev.customer!.name) : null;
+      const isRegular = customerProfile
+        ? (customerProfile.relationshipLevel === "regular" || customerProfile.relationshipLevel === "favorite")
+        : false;
 
       // Record visit in customer memory
       if (newMemory && prev.customer && prev.result) {
@@ -319,6 +388,17 @@ export default function Game() {
         });
       }
 
+      // Record customer in day stats
+      if (newDayState && prev.customer && prev.result) {
+        newDayState = recordCustomer(newDayState, {
+          earnings: prev.customer.payment,
+          quality: prev.result.quality,
+          isReturning,
+          isRegular,
+          drinkType: prev.customer.drinkType,
+        });
+      }
+
       return {
         ...prev,
         money: prev.money + prev.customer!.payment,
@@ -327,6 +407,7 @@ export default function Game() {
         result: null,
         queue: newQueue,
         customerMemory: newMemory,
+        dayState: newDayState,
       };
     });
   };
@@ -464,6 +545,202 @@ export default function Game() {
               );
             })()}
           </div>
+
+          {/* Day Phase UI */}
+          {gameState.dayState && (
+            <>
+              {/* PREP PHASE */}
+              {gameState.dayState.phase === "prep" && (
+                <div className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl shadow-xl p-8 mb-6 text-white">
+                  <div className="text-center mb-6">
+                    <h2 className="text-4xl font-bold mb-2">☀️ Day {gameState.dayState.dayNumber}</h2>
+                    <p className="text-indigo-100 text-lg">Small Hours - Morning Preparation</p>
+                  </div>
+
+                  <div className="bg-white/10 backdrop-blur rounded-xl p-6 mb-6">
+                    <h3 className="text-2xl font-bold mb-4">Today's Goals</h3>
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <div className="bg-white/10 p-4 rounded-lg">
+                        <div className="text-sm text-indigo-200 mb-1">Target Customers</div>
+                        <div className="text-3xl font-bold">{gameState.dayState.targetCustomers}</div>
+                      </div>
+                      <div className="bg-white/10 p-4 rounded-lg">
+                        <div className="text-sm text-indigo-200 mb-1">Restock Cost</div>
+                        <div className="text-3xl font-bold">${getRestockCost(gameState.dayState.dayNumber).toFixed(2)}</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {gameState.dayState.dayNumber === 1 && (
+                    <div className="bg-amber-500/20 border-2 border-amber-300/50 rounded-xl p-6 mb-6">
+                      <h3 className="text-xl font-bold mb-3">📖 Your Story Begins...</h3>
+                      <p className="text-indigo-100 leading-relaxed">
+                        Welcome to Small Hours, your new coffee shop. You've poured your savings into this dream,
+                        and today is opening day. The morning light filters through the windows, the espresso machine
+                        gleams, and your first customers are waiting. Every drink you craft, every conversation you have,
+                        will shape your cafe's reputation in this neighborhood.
+                      </p>
+                    </div>
+                  )}
+
+                  {gameState.dayState.dayNumber > 1 && (
+                    <div className="bg-white/10 backdrop-blur rounded-xl p-6 mb-6">
+                      <h3 className="text-xl font-bold mb-3">💭 Morning Thoughts...</h3>
+                      <p className="text-indigo-100">
+                        {gameState.dayState.dayNumber === 2 && "You survived your first day. Time to do it again, but better."}
+                        {gameState.dayState.dayNumber === 3 && "The rhythm of the cafe is becoming familiar. Customers are starting to remember you."}
+                        {gameState.dayState.dayNumber > 3 && gameState.dayState.dayNumber < 7 && "You're finding your groove. The locals are talking about your coffee."}
+                        {gameState.dayState.dayNumber >= 7 && "Small Hours is becoming part of the neighborhood's daily routine."}
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="space-y-4">
+                    <button
+                      onClick={handleRestock}
+                      className="w-full bg-white text-indigo-600 font-bold px-8 py-4 rounded-xl hover:bg-indigo-50 transition-all shadow-lg text-lg flex items-center justify-center gap-2"
+                    >
+                      <span>📦</span>
+                      Restock Inventory (${getRestockCost(gameState.dayState.dayNumber).toFixed(2)})
+                    </button>
+
+                    <button
+                      onClick={handleStartDay}
+                      className="w-full bg-gradient-to-r from-green-400 to-emerald-500 text-white font-bold px-8 py-4 rounded-xl hover:from-green-500 hover:to-emerald-600 transition-all shadow-lg text-lg flex items-center justify-center gap-2"
+                    >
+                      <span>🚪</span>
+                      Open the Cafe
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* DEBRIEF PHASE */}
+              {gameState.dayState.phase === "debrief" && (() => {
+                const summary = getDaySummary(gameState.dayState);
+                const performanceEmoji = getPerformanceEmoji(summary.performance);
+                const performanceDesc = getPerformanceDescription(summary.performance);
+
+                return (
+                  <div className="bg-gradient-to-br from-slate-700 to-slate-900 rounded-2xl shadow-xl p-8 mb-6 text-white">
+                    <div className="text-center mb-6">
+                      <h2 className="text-4xl font-bold mb-2">🌙 Day {summary.dayNumber} Complete</h2>
+                      <p className="text-slate-300 text-lg">End of Day Summary</p>
+                    </div>
+
+                    {/* Performance */}
+                    <div className="text-center mb-6">
+                      <div className="text-7xl mb-3">{performanceEmoji}</div>
+                      <div className="text-3xl font-bold mb-2 capitalize">{summary.performance} Day</div>
+                      <p className="text-slate-300">{performanceDesc}</p>
+                    </div>
+
+                    {/* Stats Grid */}
+                    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+                      <div className="bg-white/10 backdrop-blur rounded-xl p-4">
+                        <div className="text-sm text-slate-300 mb-1">Customers Served</div>
+                        <div className="text-3xl font-bold">
+                          {summary.customersServed} / {summary.targetCustomers}
+                        </div>
+                        <div className="text-xs text-slate-400 mt-1">
+                          {summary.customersServed >= summary.targetCustomers ? "✓ Target met!" : "✗ Below target"}
+                        </div>
+                      </div>
+
+                      <div className="bg-white/10 backdrop-blur rounded-xl p-4">
+                        <div className="text-sm text-slate-300 mb-1">Earnings</div>
+                        <div className="text-3xl font-bold text-green-400">${summary.totalEarnings.toFixed(2)}</div>
+                      </div>
+
+                      <div className="bg-white/10 backdrop-blur rounded-xl p-4">
+                        <div className="text-sm text-slate-300 mb-1">Avg. Quality</div>
+                        <div className="text-3xl font-bold">{summary.averageQuality}</div>
+                        <div className="text-xs text-slate-400 mt-1">
+                          {summary.averageQuality >= 85 ? "⭐ Excellent" : summary.averageQuality >= 70 ? "👍 Good" : "📉 Needs work"}
+                        </div>
+                      </div>
+
+                      <div className="bg-white/10 backdrop-blur rounded-xl p-4">
+                        <div className="text-sm text-slate-300 mb-1">Returning Customers</div>
+                        <div className="text-3xl font-bold text-blue-400">{summary.returningRate}%</div>
+                      </div>
+
+                      <div className="bg-white/10 backdrop-blur rounded-xl p-4">
+                        <div className="text-sm text-slate-300 mb-1">Most Popular</div>
+                        <div className="text-2xl font-bold capitalize">{summary.topDrink || "—"}</div>
+                      </div>
+
+                      <div className="bg-white/10 backdrop-blur rounded-xl p-4">
+                        <div className="text-sm text-slate-300 mb-1">Hours Open</div>
+                        <div className="text-3xl font-bold">{summary.hoursOpen}h</div>
+                      </div>
+                    </div>
+
+                    {/* Story moment based on performance */}
+                    <div className="bg-white/10 backdrop-blur rounded-xl p-6 mb-6">
+                      <h3 className="text-xl font-bold mb-3">💬 As You Close Up...</h3>
+                      <p className="text-slate-200 leading-relaxed">
+                        {summary.performance === "excellent" &&
+                          "The last customer leaves with a smile, promising to return tomorrow. You wipe down the counter with satisfaction—this is what you dreamed of when you opened Small Hours."}
+                        {summary.performance === "good" &&
+                          "A solid day. You learned a few things, met some interesting people. Tomorrow, you'll do even better."}
+                        {summary.performance === "fair" &&
+                          "Not bad for a day's work, but you know you can do better. The regulars are starting to notice your craft."}
+                        {summary.performance === "poor" &&
+                          "It was a rough day. Some orders didn't go as planned, and you lost track of time. But every barista has days like this. Tomorrow is a fresh start."}
+                      </p>
+                    </div>
+
+                    <button
+                      onClick={handleNextDay}
+                      className="w-full bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-bold px-8 py-4 rounded-xl hover:from-indigo-600 hover:to-purple-700 transition-all shadow-lg text-lg flex items-center justify-center gap-2"
+                    >
+                      <span>☀️</span>
+                      Start Day {summary.dayNumber + 1}
+                    </button>
+                  </div>
+                );
+              })()}
+
+              {/* SERVICE PHASE - Show day progress */}
+              {gameState.dayState.phase === "service" && (
+                <div className="bg-gradient-to-r from-amber-500 to-orange-500 rounded-xl shadow-lg p-4 mb-6 text-white">
+                  <div className="flex justify-between items-center mb-2">
+                    <div className="font-bold">Day {gameState.dayState.dayNumber} - Service</div>
+                    <button
+                      onClick={handleEndDay}
+                      className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg text-sm font-semibold transition-all"
+                    >
+                      🌙 Close Cafe
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <div className="flex-1">
+                      <div className="flex justify-between text-sm mb-1">
+                        <span>Progress</span>
+                        <span>{gameState.dayState.stats.customersServed} / {gameState.dayState.targetCustomers}</span>
+                      </div>
+                      <div className="w-full bg-white/20 rounded-full h-3">
+                        <div
+                          className="bg-white h-3 rounded-full transition-all"
+                          style={{
+                            width: `${Math.min(
+                              (gameState.dayState.stats.customersServed / gameState.dayState.targetCustomers) * 100,
+                              100
+                            )}%`,
+                          }}
+                        />
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-sm opacity-90">Today's Earnings</div>
+                      <div className="text-2xl font-bold">${gameState.dayState.stats.totalEarnings.toFixed(2)}</div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
 
           {/* Queue Panel */}
           {gameState.queue && getPendingTickets(gameState.queue).length > 0 && (
