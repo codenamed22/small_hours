@@ -52,6 +52,8 @@ export default function Game() {
   const [isGeneratingCustomer, setIsGeneratingCustomer] = useState(false);
   const [allergenCheck, setAllergenCheck] = useState<AllergenCheckResult | null>(null);
   const [isCheckingAllergens, setIsCheckingAllergens] = useState(false);
+  const [isBrewing, setIsBrewing] = useState(false);
+  const [isServing, setIsServing] = useState(false);
   const [showMemoryStats, setShowMemoryStats] = useState(false);
   const [lastSaveTime, setLastSaveTime] = useState<number | null>(null);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -283,79 +285,86 @@ export default function Game() {
   };
 
   const handleBrew = async () => {
-    if (!gameState.customer) return;
+    // Guard against race conditions (prevent double-clicks)
+    if (!gameState.customer || isBrewing) return;
 
-    // Check allergens if customer has any
-    if (gameState.customer.allergens && gameState.customer.allergens.length > 0) {
-      setIsCheckingAllergens(true);
-      try {
-        const response = await fetch("/api/process-order", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            action: "check_allergens",
-            drinkType: gameState.customer.drinkType,
-            milkType: gameState.brewParams.milkType,
-            customerAllergens: gameState.customer.allergens,
-          }),
-        });
+    setIsBrewing(true);
+    try {
+      // Check allergens if customer has any
+      if (gameState.customer.allergens && gameState.customer.allergens.length > 0) {
+        setIsCheckingAllergens(true);
+        try {
+          const response = await fetch("/api/process-order", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              action: "check_allergens",
+              drinkType: gameState.customer.drinkType,
+              milkType: gameState.brewParams.milkType,
+              customerAllergens: gameState.customer.allergens,
+            }),
+          });
 
-        if (response.ok) {
-          const data = await response.json();
-          const check: AllergenCheckResult = data.allergenCheck;
-          setAllergenCheck(check);
+          if (response.ok) {
+            const data = await response.json();
+            const check: AllergenCheckResult = data.allergenCheck;
+            setAllergenCheck(check);
 
-          if (!check.safe) {
-            alert(`⚠️ ALLERGEN WARNING!\n\n${check.blockers.join("\n")}\n\nPlease adjust the drink parameters before brewing.`);
-            setIsCheckingAllergens(false);
-            return;
+            if (!check.safe) {
+              alert(`⚠️ ALLERGEN WARNING!\n\n${check.blockers.join("\n")}\n\nPlease adjust the drink parameters before brewing.`);
+              return;
+            }
+
+            if (check.warnings.length > 0) {
+              console.warn("Allergen warnings:", check.warnings);
+            }
           }
-
-          if (check.warnings.length > 0) {
-            console.warn("Allergen warnings:", check.warnings);
-          }
+        } catch (error) {
+          console.error("Failed to check allergens:", error);
+        } finally {
+          setIsCheckingAllergens(false);
         }
-      } catch (error) {
-        console.error("Failed to check allergens:", error);
-      } finally {
-        setIsCheckingAllergens(false);
       }
+
+      // Check if we have enough stock
+      const stockCheck = checkStock(
+        gameState.inventory,
+        gameState.customer.drinkType,
+        gameState.brewParams
+      );
+
+      if (!stockCheck.available) {
+        alert(`Out of stock: ${stockCheck.missing.join(", ")}`);
+        return;
+      }
+
+      // Brew the drink
+      const result = brewDrink(gameState.customer.drinkType, gameState.brewParams);
+
+      // Deplete stock
+      const newInventory = depleteStock(
+        gameState.inventory,
+        gameState.customer.drinkType,
+        gameState.brewParams
+      );
+
+      setGameState((prev) => ({
+        ...prev,
+        result,
+        inventory: newInventory,
+      }));
+    } finally {
+      setIsBrewing(false);
     }
-
-    // Check if we have enough stock
-    const stockCheck = checkStock(
-      gameState.inventory,
-      gameState.customer.drinkType,
-      gameState.brewParams
-    );
-
-    if (!stockCheck.available) {
-      alert(`Out of stock: ${stockCheck.missing.join(", ")}`);
-      return;
-    }
-
-    // Brew the drink
-    const result = brewDrink(gameState.customer.drinkType, gameState.brewParams);
-
-    // Deplete stock
-    const newInventory = depleteStock(
-      gameState.inventory,
-      gameState.customer.drinkType,
-      gameState.brewParams
-    );
-
-    setGameState((prev) => ({
-      ...prev,
-      result,
-      inventory: newInventory,
-    }));
   };
 
   const handleServe = () => {
-    if (!gameState.result || !gameState.customer) return;
+    // Guard against race conditions (prevent double-clicks)
+    if (!gameState.result || !gameState.customer || isServing) return;
 
+    setIsServing(true);
     setShowHelp(false); // Reset help when serving
     setAllergenCheck(null); // Reset allergen check
 
@@ -410,6 +419,9 @@ export default function Game() {
         dayState: newDayState,
       };
     });
+
+    // Reset serving flag after state update
+    setIsServing(false);
   };
 
   const updateBrewParam = <K extends keyof BrewParameters>(
@@ -1152,10 +1164,10 @@ export default function Game() {
                     {/* Brew Button */}
                     <button
                       onClick={handleBrew}
-                      disabled={isCheckingAllergens}
+                      disabled={isCheckingAllergens || isBrewing}
                       className="w-full bg-white text-amber-900 font-bold px-8 py-4 rounded-xl hover:bg-amber-50 transition-all shadow-lg text-lg mt-4 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                     >
-                      {isCheckingAllergens ? (
+                      {isCheckingAllergens || isBrewing ? (
                         <>
                           <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
                             <circle
@@ -1173,7 +1185,7 @@ export default function Game() {
                               d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                             />
                           </svg>
-                          Checking Safety...
+                          {isCheckingAllergens ? "Checking Safety..." : "Brewing..."}
                         </>
                       ) : (
                         recipe.category === "espresso-based" ? "Pull Shot" : `Brew ${recipe.name}`
@@ -1237,9 +1249,10 @@ export default function Game() {
                   {/* Serve Button */}
                   <button
                     onClick={handleServe}
-                    className="w-full bg-gradient-to-r from-green-500 to-emerald-500 text-white font-bold px-8 py-4 rounded-xl hover:from-green-600 hover:to-emerald-600 transition-all shadow-lg text-lg"
+                    disabled={isServing}
+                    className="w-full bg-gradient-to-r from-green-500 to-emerald-500 text-white font-bold px-8 py-4 rounded-xl hover:from-green-600 hover:to-emerald-600 transition-all shadow-lg text-lg disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    Serve & Collect ${gameState.customer.payment.toFixed(2)}
+                    {isServing ? "Serving..." : `Serve & Collect $${gameState.customer.payment.toFixed(2)}`}
                   </button>
                 </div>
               )}
