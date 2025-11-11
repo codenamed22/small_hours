@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import {
   GameState,
   BrewParameters,
@@ -56,6 +57,7 @@ export default function Game() {
   const [isServing, setIsServing] = useState(false);
   const [showMemoryStats, setShowMemoryStats] = useState(false);
   const [lastSaveTime, setLastSaveTime] = useState<number | null>(null);
+  const [apiError, setApiError] = useState<string | null>(null);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Load saved game on client mount only
@@ -213,6 +215,7 @@ export default function Game() {
     setShowHelp(false); // Reset help for new order
     setIsGeneratingCustomer(true);
     setAllergenCheck(null); // Reset allergen check
+    setApiError(null); // Clear any previous errors
 
     try {
       // Call API route to generate a dynamic customer (server-side)
@@ -268,6 +271,9 @@ export default function Game() {
     } catch (error) {
       console.error("Failed to generate customer:", error);
 
+      // Set user-facing error message
+      setApiError("Unable to reach our customer system. Using a backup customer instead.");
+
       // Fallback to static customer if API fails - random drink
       const randomDrink = ["espresso", "latte", "cappuccino", "pourover", "aeropress"][
         Math.floor(Math.random() * 5)
@@ -279,6 +285,9 @@ export default function Game() {
         brewParams: getDefaultParameters(randomDrink),
         result: null,
       }));
+
+      // Auto-clear error after 5 seconds
+      setTimeout(() => setApiError(null), 5000);
     } finally {
       setIsGeneratingCustomer(false);
     }
@@ -455,7 +464,8 @@ export default function Game() {
   const hasBloom = requiredParams.includes("bloomTime");
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-50">
+    <ErrorBoundary>
+      <div className="min-h-screen bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-50">
       <main className="container mx-auto px-4 py-8">
         <div className="max-w-6xl mx-auto">
           {/* Header */}
@@ -498,6 +508,32 @@ export default function Game() {
               )}
             </div>
           </div>
+
+          {/* API Error Banner */}
+          {apiError && (
+            <div className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-900 p-4 mb-6 rounded-lg shadow-md animate-pulse">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <svg className="h-5 w-5 text-yellow-500" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div className="ml-3">
+                  <p className="text-sm font-medium">{apiError}</p>
+                </div>
+                <div className="ml-auto pl-3">
+                  <button
+                    onClick={() => setApiError(null)}
+                    className="text-yellow-700 hover:text-yellow-900 transition-colors"
+                  >
+                    <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Stats Bar */}
           <div className="bg-white/90 backdrop-blur rounded-xl shadow-lg p-4 mb-6">
@@ -1337,5 +1373,6 @@ export default function Game() {
         </div>
       </main>
     </div>
+    </ErrorBoundary>
   );
 }
