@@ -15,7 +15,7 @@ import {
   deserializeGameState,
 } from "./persistence";
 import { createInitialState } from "./game-engine";
-import type { GameState } from "./types";
+import type { GameState, DrinkType, MilkType } from "./types";
 
 // Mock localStorage
 const localStorageMock = (() => {
@@ -169,7 +169,7 @@ describe("Persistence System", () => {
 
       // Create a customer with favorite drinks Map
       if (state.customerMemory) {
-        const favoriteDrinks = new Map<string, number>();
+        const favoriteDrinks = new Map<DrinkType, number>();
         favoriteDrinks.set("latte", 5);
         favoriteDrinks.set("espresso", 3);
 
@@ -183,7 +183,7 @@ describe("Persistence System", () => {
           visits: [],
           preferences: {
             favoriteDrinks,
-            preferredMilk: "oat" as const,
+            preferredMilk: "oat" as MilkType,
             averageQualityExpectation: 85,
             allergens: ["dairy"],
           },

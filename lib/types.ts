@@ -115,6 +115,30 @@ export interface GameState {
   inventory: Inventory;
   queue?: QueueState;
   customerMemory?: CustomerMemoryState;
+  dayState?: DayState;
+}
+
+// Day structure types (re-exported from day-structure.ts)
+export type DayPhase = "prep" | "service" | "debrief";
+
+export interface DayStats {
+  customersServed: number;
+  totalEarnings: number;
+  averageQuality: number;
+  qualityScores: number[];
+  returningCustomers: number;
+  newCustomers: number;
+  regularCustomers: number;
+  drinksBrewedByType: Record<string, number>;
+}
+
+export interface DayState {
+  dayNumber: number;
+  phase: DayPhase;
+  stats: DayStats;
+  openTime: number | null;
+  closeTime: number | null;
+  targetCustomers: number;
 }
 
 // Customer Memory types (re-exported from customer-memory.ts)

@@ -26,6 +26,7 @@ import { SCORING } from "./scoring";
 import { createInventory } from "./inventory";
 import { createQueueState } from "./ticketing";
 import { createMemoryState } from "./customer-memory";
+import { createDayState } from "./day-structure";
 
 // ============================================================================
 // CONSTANTS - Configuration constants for the game
@@ -153,6 +154,26 @@ export type {
   RelationshipLevel,
   MemoryStats,
 } from "./customer-memory";
+
+// Re-export day structure system
+export {
+  createDayState,
+  startService,
+  endService,
+  startNewDay,
+  recordCustomer,
+  restockInventory,
+  getRestockCost,
+  getDaySummary,
+  getPerformanceEmoji,
+  getPerformanceDescription,
+} from "./day-structure";
+export type {
+  DayPhase,
+  DayStats,
+  DayState,
+  DaySummary,
+} from "./day-structure";
 
 // ============================================================================
 // VALIDATION - Ensure data integrity
@@ -337,6 +358,7 @@ export function createInitialState(): GameState {
     inventory: createInventory(),
     queue: createQueueState(),
     customerMemory: createMemoryState(),
+    dayState: createDayState(),
   };
 }
 
