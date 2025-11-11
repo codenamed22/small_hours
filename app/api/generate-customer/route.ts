@@ -2,6 +2,7 @@ import { generateCustomer } from "@/lib/llm";
 import { NextResponse } from "next/server";
 import type { DrinkType } from "@/lib/types";
 import { VALID_DRINKS } from "@/lib/types";
+import { auditedLLMCall } from "@/lib/audit-log";
 
 export async function POST(request: Request) {
   try {
@@ -16,8 +17,13 @@ export async function POST(request: Request) {
       );
     }
 
-    // Generate customer using LLM
-    const customer = await generateCustomer(drinkType);
+    // Generate customer using LLM with audit logging
+    const customer = await auditedLLMCall({
+      source: "generate_customer",
+      model: "anthropic/claude-3.5-sonnet",
+      prompt: `Generate customer for drink: ${drinkType || "random"}`,
+      fn: () => generateCustomer(drinkType),
+    });
 
     return NextResponse.json({ customer });
   } catch (error) {

@@ -18,6 +18,7 @@ import {
   type AllergenCheckResult,
 } from "@/lib/function-calling";
 import type { Customer } from "@/lib/types";
+import { auditedLLMCall, auditedToolCall } from "@/lib/audit-log";
 
 export async function POST(request: Request) {
   try {
@@ -38,12 +39,16 @@ export async function POST(request: Request) {
         );
       }
 
-      const completion = await client.chat.completions.create({
+      const completion = await auditedLLMCall({
+        source: "process_order",
         model,
-        messages: [
-          {
-            role: "system",
-            content: `You are a helpful barista assistant at "Small Hours" café.
+        prompt: `Parse order: "${orderText}"`,
+        fn: () => client.chat.completions.create({
+          model,
+          messages: [
+            {
+              role: "system",
+              content: `You are a helpful barista assistant at "Small Hours" café.
 Your job is to parse customer orders into structured data.
 
 Listen carefully to what the customer says and extract:
@@ -54,16 +59,17 @@ Listen carefully to what the customer says and extract:
 - How rushed they seem
 
 Use the parse_order function to structure the order.`,
-          },
-          {
-            role: "user",
-            content: `Customer says: "${orderText}"`,
-          },
-        ],
-        tools: TOOLS,
-        tool_choice: { type: "function", function: { name: "parse_order" } },
-        max_tokens: 256,
-        temperature: 0.3, // Lower temperature for more consistent parsing
+            },
+            {
+              role: "user",
+              content: `Customer says: "${orderText}"`,
+            },
+          ],
+          tools: TOOLS,
+          tool_choice: { type: "function", function: { name: "parse_order" } },
+          max_tokens: 256,
+          temperature: 0.3, // Lower temperature for more consistent parsing
+        }),
       });
 
       const message = completion.choices[0]?.message;
@@ -76,7 +82,12 @@ Use the parse_order function to structure the order.`,
 
       const toolCall = message.tool_calls[0];
       const functionArgs = JSON.parse(toolCall.function.arguments);
-      const parsedOrder = executeFunctionCall("parse_order", functionArgs) as ParsedOrder;
+      const parsedOrder = auditedToolCall({
+        source: "process_order",
+        toolName: "parse_order",
+        toolArgs: functionArgs,
+        fn: () => executeFunctionCall("parse_order", functionArgs),
+      }) as ParsedOrder;
 
       return NextResponse.json({ parsedOrder });
     }
@@ -94,12 +105,16 @@ Use the parse_order function to structure the order.`,
 
       const customerData = customer as Customer;
 
-      const completion = await client.chat.completions.create({
+      const completion = await auditedLLMCall({
+        source: "process_order",
         model,
-        messages: [
-          {
-            role: "system",
-            content: `You are a barista at "Small Hours" café managing the order queue.
+        prompt: `Create ticket for: ${customerData.name} - ${customerData.drinkType}`,
+        fn: () => client.chat.completions.create({
+          model,
+          messages: [
+            {
+              role: "system",
+              content: `You are a barista at "Small Hours" café managing the order queue.
 
 Create an order ticket for this customer. Extract key information:
 - Customer name
@@ -109,22 +124,23 @@ Create an order ticket for this customer. Extract key information:
 - Priority (high if customer seems rushed, otherwise normal)
 
 Use the create_ticket function.`,
-          },
-          {
-            role: "user",
-            content: `Customer: ${customerData.name}
+            },
+            {
+              role: "user",
+              content: `Customer: ${customerData.name}
 Order: "${customerData.order}"
 Drink: ${customerData.drinkType}
 Mood: ${customerData.mood || "neutral"}
 ${customerData.allergens && customerData.allergens.length > 0 ? `Allergens: ${customerData.allergens.join(", ")}` : ""}
 
 Create a ticket for this order.`,
-          },
-        ],
-        tools: TOOLS,
-        tool_choice: { type: "function", function: { name: "create_ticket" } },
-        max_tokens: 256,
-        temperature: 0.3,
+            },
+          ],
+          tools: TOOLS,
+          tool_choice: { type: "function", function: { name: "create_ticket" } },
+          max_tokens: 256,
+          temperature: 0.3,
+        }),
       });
 
       const message = completion.choices[0]?.message;
@@ -137,7 +153,12 @@ Create a ticket for this order.`,
 
       const toolCall = message.tool_calls[0];
       const functionArgs = JSON.parse(toolCall.function.arguments);
-      const ticket = executeFunctionCall("create_ticket", functionArgs) as OrderTicket;
+      const ticket = auditedToolCall({
+        source: "process_order",
+        toolName: "create_ticket",
+        toolArgs: functionArgs,
+        fn: () => executeFunctionCall("create_ticket", functionArgs),
+      }) as OrderTicket;
 
       return NextResponse.json({ ticket });
     }
@@ -156,30 +177,35 @@ Create a ticket for this order.`,
       }
 
       // Use LLM to intelligently check allergens
-      const completion = await client.chat.completions.create({
+      const completion = await auditedLLMCall({
+        source: "process_order",
         model,
-        messages: [
-          {
-            role: "system",
-            content: `You are a safety-focused barista at "Small Hours" café.
+        prompt: `Check allergens: ${drinkType} with ${milkType || "no milk"} for ${customerAllergens.join(", ")}`,
+        fn: () => client.chat.completions.create({
+          model,
+          messages: [
+            {
+              role: "system",
+              content: `You are a safety-focused barista at "Small Hours" café.
 
 Your job is to check if a drink configuration is safe for customers with allergens.
 Always prioritize customer safety. Use the check_allergens function.`,
-          },
-          {
-            role: "user",
-            content: `Check safety:
+            },
+            {
+              role: "user",
+              content: `Check safety:
 Drink: ${drinkType}
 Milk: ${milkType || "none"}
 Customer allergens: ${customerAllergens.join(", ")}
 
 Is this safe to serve?`,
-          },
-        ],
-        tools: TOOLS,
-        tool_choice: { type: "function", function: { name: "check_allergens" } },
-        max_tokens: 256,
-        temperature: 0.1, // Very low temperature for safety checks
+            },
+          ],
+          tools: TOOLS,
+          tool_choice: { type: "function", function: { name: "check_allergens" } },
+          max_tokens: 256,
+          temperature: 0.1, // Very low temperature for safety checks
+        }),
       });
 
       const message = completion.choices[0]?.message;
@@ -192,7 +218,12 @@ Is this safe to serve?`,
 
       const toolCall = message.tool_calls[0];
       const functionArgs = JSON.parse(toolCall.function.arguments);
-      const allergenCheck = executeFunctionCall("check_allergens", functionArgs) as AllergenCheckResult;
+      const allergenCheck = auditedToolCall({
+        source: "process_order",
+        toolName: "check_allergens",
+        toolArgs: functionArgs,
+        fn: () => executeFunctionCall("check_allergens", functionArgs),
+      }) as AllergenCheckResult;
 
       return NextResponse.json({ allergenCheck });
     }

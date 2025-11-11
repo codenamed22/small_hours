@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { AuditLogViewer } from "@/components/AuditLogViewer";
 import {
   GameState,
   BrewParameters,
@@ -466,6 +467,7 @@ export default function Game() {
   return (
     <ErrorBoundary>
       <div className="min-h-screen bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-50">
+      <AuditLogViewer />
       <main className="container mx-auto px-4 py-8">
         <div className="max-w-6xl mx-auto">
           {/* Header */}
