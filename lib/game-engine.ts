@@ -25,6 +25,7 @@ import { RECIPES } from "./recipes";
 import { SCORING } from "./scoring";
 import { createInventory } from "./inventory";
 import { createQueueState } from "./ticketing";
+import { createMemoryState } from "./customer-memory";
 
 // ============================================================================
 // CONSTANTS - Configuration constants for the game
@@ -134,6 +135,24 @@ export {
   getQueueStats,
 } from "./ticketing";
 export type { QueueStats } from "./ticketing";
+
+// Re-export customer memory system
+export {
+  createMemoryState,
+  getCustomer,
+  isReturningCustomer,
+  recordVisit,
+  addNote,
+  getFavoriteDrink,
+  getRegularCustomers,
+  getCustomerInsights,
+  calculateReturningRate,
+  getMemoryStats,
+} from "./customer-memory";
+export type {
+  RelationshipLevel,
+  MemoryStats,
+} from "./customer-memory";
 
 // ============================================================================
 // VALIDATION - Ensure data integrity
@@ -317,6 +336,7 @@ export function createInitialState(): GameState {
     drinksServed: 0,
     inventory: createInventory(),
     queue: createQueueState(),
+    customerMemory: createMemoryState(),
   };
 }
 

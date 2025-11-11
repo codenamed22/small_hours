@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   GameState,
   BrewParameters,
@@ -25,14 +25,126 @@ import {
   getQueueStats,
   type OrderTicket,
   type AllergenCheckResult,
+  isReturningCustomer,
+  recordVisit,
+  getCustomer,
+  getCustomerInsights,
+  getMemoryStats,
 } from "@/lib/game-engine";
+import {
+  saveGame,
+  loadGame,
+  hasSave,
+  deleteSave,
+  exportSave,
+  importSave,
+  getSaveInfo,
+} from "@/lib/persistence";
 
 export default function Game() {
-  const [gameState, setGameState] = useState<GameState>(createInitialState());
+  const [gameState, setGameState] = useState<GameState>(() => {
+    // Load saved game on initial mount
+    const saved = loadGame();
+    return saved || createInitialState();
+  });
   const [showHelp, setShowHelp] = useState(false);
   const [isGeneratingCustomer, setIsGeneratingCustomer] = useState(false);
   const [allergenCheck, setAllergenCheck] = useState<AllergenCheckResult | null>(null);
   const [isCheckingAllergens, setIsCheckingAllergens] = useState(false);
+  const [showMemoryStats, setShowMemoryStats] = useState(false);
+  const [lastSaveTime, setLastSaveTime] = useState<number | null>(null);
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Auto-save game state (debounced)
+  useEffect(() => {
+    // Clear existing timeout
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+
+    // Debounce save by 1 second
+    saveTimeoutRef.current = setTimeout(() => {
+      const success = saveGame(gameState);
+      if (success) {
+        setLastSaveTime(Date.now());
+      }
+    }, 1000);
+
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, [gameState]);
+
+  // Manual save
+  const handleManualSave = () => {
+    const success = saveGame(gameState);
+    if (success) {
+      setLastSaveTime(Date.now());
+      alert("Game saved successfully!");
+    } else {
+      alert("Failed to save game. Check browser console.");
+    }
+  };
+
+  // Reset game
+  const handleReset = () => {
+    if (confirm("Are you sure you want to reset your game? This cannot be undone.")) {
+      deleteSave();
+      setGameState(createInitialState());
+      setLastSaveTime(null);
+      alert("Game reset successfully!");
+    }
+  };
+
+  // Export save
+  const handleExport = () => {
+    const json = exportSave();
+    if (!json) {
+      alert("No save data to export.");
+      return;
+    }
+
+    const blob = new Blob([json], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `small-hours-save-${Date.now()}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  // Import save
+  const handleImport = () => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "application/json";
+    input.onchange = (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const json = event.target?.result as string;
+        const success = importSave(json);
+        if (success) {
+          const loaded = loadGame();
+          if (loaded) {
+            setGameState(loaded);
+            setLastSaveTime(Date.now());
+            alert("Save imported successfully!");
+          }
+        } else {
+          alert("Failed to import save. Invalid file format.");
+        }
+      };
+      reader.readAsText(file);
+    };
+    input.click();
+  };
 
   const startNewOrder = async () => {
     setShowHelp(false); // Reset help for new order
@@ -188,10 +300,23 @@ export default function Game() {
 
     setGameState((prev) => {
       let newQueue = prev.queue;
+      let newMemory = prev.customerMemory;
 
       // Complete the active ticket if there is one
       if (newQueue && newQueue.activeTicketId) {
         newQueue = completeTicket(newQueue, newQueue.activeTicketId, prev.customer!.payment);
+      }
+
+      // Record visit in customer memory
+      if (newMemory && prev.customer && prev.result) {
+        newMemory = recordVisit(newMemory, prev.customer.name, {
+          drinkOrdered: prev.customer.drinkType,
+          milkType: prev.brewParams.milkType,
+          quality: prev.result.quality,
+          satisfaction: prev.result.quality, // Use quality as satisfaction for now
+          payment: prev.customer.payment,
+          allergens: prev.customer.allergens,
+        });
       }
 
       return {
@@ -201,6 +326,7 @@ export default function Game() {
         customer: null,
         result: null,
         queue: newQueue,
+        customerMemory: newMemory,
       };
     });
   };
@@ -245,30 +371,98 @@ export default function Game() {
               Small Hours
             </h1>
             <p className="text-amber-700">A Coffee Craft Simulator</p>
+
+            {/* Save Menu */}
+            <div className="mt-4 flex justify-center gap-2 flex-wrap">
+              <button
+                onClick={handleManualSave}
+                className="text-sm bg-green-100 text-green-800 px-3 py-1 rounded-lg font-medium hover:bg-green-200 transition-all"
+              >
+                💾 Save
+              </button>
+              <button
+                onClick={handleExport}
+                className="text-sm bg-blue-100 text-blue-800 px-3 py-1 rounded-lg font-medium hover:bg-blue-200 transition-all"
+              >
+                📤 Export
+              </button>
+              <button
+                onClick={handleImport}
+                className="text-sm bg-purple-100 text-purple-800 px-3 py-1 rounded-lg font-medium hover:bg-purple-200 transition-all"
+              >
+                📥 Import
+              </button>
+              <button
+                onClick={handleReset}
+                className="text-sm bg-red-100 text-red-800 px-3 py-1 rounded-lg font-medium hover:bg-red-200 transition-all"
+              >
+                🔄 Reset
+              </button>
+              {lastSaveTime && (
+                <span className="text-xs text-gray-500 self-center">
+                  Last saved: {new Date(lastSaveTime).toLocaleTimeString()}
+                </span>
+              )}
+            </div>
           </div>
 
           {/* Stats Bar */}
-          <div className="bg-white/90 backdrop-blur rounded-xl shadow-lg p-4 mb-6 flex justify-between items-center">
-            <div>
-              <span className="text-gray-600">Money:</span>
-              <span className="ml-2 text-2xl font-bold text-green-600">
-                ${gameState.money.toFixed(2)}
-              </span>
-            </div>
-            <div>
-              <span className="text-gray-600">Drinks Served:</span>
-              <span className="ml-2 text-2xl font-bold text-amber-600">
-                {gameState.drinksServed}
-              </span>
-            </div>
-            {gameState.queue && (
+          <div className="bg-white/90 backdrop-blur rounded-xl shadow-lg p-4 mb-6">
+            <div className="flex justify-between items-center">
               <div>
-                <span className="text-gray-600">Queue:</span>
-                <span className="ml-2 text-2xl font-bold text-blue-600">
-                  {getPendingTickets(gameState.queue).length}
+                <span className="text-gray-600">Money:</span>
+                <span className="ml-2 text-2xl font-bold text-green-600">
+                  ${gameState.money.toFixed(2)}
                 </span>
               </div>
-            )}
+              <div>
+                <span className="text-gray-600">Drinks Served:</span>
+                <span className="ml-2 text-2xl font-bold text-amber-600">
+                  {gameState.drinksServed}
+                </span>
+              </div>
+              {gameState.queue && (
+                <div>
+                  <span className="text-gray-600">Queue:</span>
+                  <span className="ml-2 text-2xl font-bold text-blue-600">
+                    {getPendingTickets(gameState.queue).length}
+                  </span>
+                </div>
+              )}
+              {gameState.customerMemory && gameState.customerMemory.totalCustomersServed > 0 && (
+                <button
+                  onClick={() => setShowMemoryStats(!showMemoryStats)}
+                  className="text-sm bg-purple-100 text-purple-800 px-3 py-2 rounded-lg font-semibold hover:bg-purple-200 transition-all"
+                >
+                  {showMemoryStats ? "Hide" : "Show"} Customer Stats
+                </button>
+              )}
+            </div>
+
+            {/* Memory Stats Panel */}
+            {showMemoryStats && gameState.customerMemory && (() => {
+              const stats = getMemoryStats(gameState.customerMemory);
+              return (
+                <div className="mt-4 pt-4 border-t border-gray-200 grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="text-center">
+                    <div className="text-sm text-gray-600">Total Customers</div>
+                    <div className="text-xl font-bold text-purple-600">{stats.totalCustomers}</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-sm text-gray-600">Returning Rate</div>
+                    <div className="text-xl font-bold text-blue-600">{stats.returningRate.toFixed(0)}%</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-sm text-gray-600">Regulars</div>
+                    <div className="text-xl font-bold text-amber-600">{stats.regularCustomers + stats.favoriteCustomers}</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-sm text-gray-600">Avg. Satisfaction</div>
+                    <div className="text-xl font-bold text-green-600">{stats.averageSatisfaction}</div>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
 
           {/* Queue Panel */}
@@ -376,7 +570,14 @@ export default function Game() {
                          gameState.customer.mood === "tired" ? "😴" : "😐"}
                       </span>
                       <div className="flex-1">
-                        <p className="text-lg font-semibold">{gameState.customer.name}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="text-lg font-semibold">{gameState.customer.name}</p>
+                          {gameState.customerMemory && isReturningCustomer(gameState.customerMemory, gameState.customer.name) && (
+                            <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded font-medium">
+                              Returning
+                            </span>
+                          )}
+                        </div>
                         {gameState.customer.personality && (
                           <p className="text-xs text-gray-500 italic">
                             {gameState.customer.personality}
@@ -384,6 +585,40 @@ export default function Game() {
                         )}
                       </div>
                     </div>
+
+                    {/* Customer Memory Insights */}
+                    {gameState.customerMemory && (() => {
+                      const profile = getCustomer(gameState.customerMemory, gameState.customer!.name);
+                      if (profile) {
+                        const insights = getCustomerInsights(profile);
+                        const relationshipColors = {
+                          stranger: "bg-gray-100 text-gray-700",
+                          newcomer: "bg-green-100 text-green-800",
+                          familiar: "bg-blue-100 text-blue-800",
+                          regular: "bg-purple-100 text-purple-800",
+                          favorite: "bg-amber-100 text-amber-800",
+                        };
+                        const relationshipColor = relationshipColors[profile.relationshipLevel] || "bg-gray-100 text-gray-700";
+
+                        return (
+                          <div className="mb-3 p-3 bg-blue-50 rounded-lg border-l-4 border-blue-400">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className={`text-xs px-2 py-1 rounded font-semibold ${relationshipColor}`}>
+                                {profile.relationshipLevel.toUpperCase()}
+                              </span>
+                              <span className="text-xs text-gray-600">
+                                Visit #{profile.visitCount}
+                              </span>
+                            </div>
+                            <p className="text-xs text-gray-700 mt-2">
+                              {insights}
+                            </p>
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
+
                     <p className="text-base mb-3 bg-amber-50 p-3 rounded-lg border-l-4 border-amber-400">
                       &quot;{gameState.customer.order}&quot;
                     </p>

@@ -113,7 +113,45 @@ export interface GameState {
   money: number;
   drinksServed: number;
   inventory: Inventory;
-  queue?: QueueState; // Optional for backward compatibility
+  queue?: QueueState;
+  customerMemory?: CustomerMemoryState;
+}
+
+// Customer Memory types (re-exported from customer-memory.ts)
+export interface CustomerMemoryState {
+  customers: Map<string, CustomerProfile>;
+  totalCustomersServed: number;
+  returningCustomerRate: number;
+}
+
+export interface CustomerProfile {
+  name: string;
+  firstVisit: number;
+  lastVisit: number;
+  visitCount: number;
+  relationshipLevel: "stranger" | "newcomer" | "familiar" | "regular" | "favorite";
+  visits: CustomerVisit[];
+  preferences: CustomerPreferences;
+  totalSpent: number;
+  averageSatisfaction: number;
+  notes: string[];
+}
+
+export interface CustomerVisit {
+  date: number;
+  drinkOrdered: DrinkType;
+  milkType?: MilkType;
+  quality: number;
+  satisfaction: number;
+  payment: number;
+  tip?: number;
+}
+
+export interface CustomerPreferences {
+  favoriteDrinks: Map<DrinkType, number>;
+  preferredMilk?: MilkType;
+  averageQualityExpectation: number;
+  allergens: string[];
 }
 
 // Queue types (re-exported from ticketing.ts for convenience)
