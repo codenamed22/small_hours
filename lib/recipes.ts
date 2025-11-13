@@ -260,6 +260,154 @@ const IMMERSION_RULES: Rule[] = [
 ];
 
 // ============================================================================
+// MOCHA RULES - Espresso with chocolate and milk
+// ============================================================================
+
+const MOCHA_RULES: Rule[] = [
+  {
+    id: "mocha_grind",
+    name: "Grind Size",
+    conditions: [{ parameter: "drinkType", operator: "equals", value: "mocha" }],
+    weight: 0.25,
+    score: (params, context) => scoreGrindSize(params.grindSize, context.recipe.idealGrind)
+  },
+  {
+    id: "mocha_espresso_temp",
+    name: "Espresso Temperature",
+    conditions: [{ parameter: "drinkType", operator: "equals", value: "mocha" }],
+    weight: 0.2,
+    score: (params, context) =>
+      calculateToleranceScore(params.temperature, context.recipe.idealTemp, context.recipe.tolerances.temp)
+  },
+  {
+    id: "mocha_espresso_time",
+    name: "Espresso Time",
+    conditions: [{ parameter: "drinkType", operator: "equals", value: "mocha" }],
+    weight: 0.15,
+    score: (params, context) =>
+      calculateToleranceScore(params.brewTime, context.recipe.idealBrewTime, context.recipe.tolerances.time)
+  },
+  {
+    id: "mocha_milk_temp",
+    name: "Milk Temperature",
+    conditions: [
+      { parameter: "drinkType", operator: "equals", value: "mocha" },
+      { parameter: "milkType", operator: "not_equals", value: "none" }
+    ],
+    weight: 0.25,
+    score: (params, context) => {
+      if (!params.milkTemp || !context.recipe.idealMilkTemp) return 0;
+      return calculateToleranceScore(
+        params.milkTemp,
+        context.recipe.idealMilkTemp,
+        context.recipe.tolerances.milkTemp || 10
+      );
+    }
+  },
+  {
+    id: "mocha_foam",
+    name: "Foam Amount",
+    conditions: [
+      { parameter: "drinkType", operator: "equals", value: "mocha" },
+      { parameter: "milkType", operator: "not_equals", value: "none" }
+    ],
+    weight: 0.15,
+    score: (params, context) => {
+      if (params.foamAmount === undefined || !context.recipe.idealFoamAmount) return 0;
+      return calculateToleranceScore(
+        params.foamAmount,
+        context.recipe.idealFoamAmount,
+        context.recipe.tolerances.foam || 15
+      );
+    }
+  }
+];
+
+// ============================================================================
+// AMERICANO RULES - Espresso with hot water
+// ============================================================================
+
+const AMERICANO_RULES: Rule[] = [
+  {
+    id: "americano_grind",
+    name: "Grind Size",
+    conditions: [{ parameter: "drinkType", operator: "equals", value: "americano" }],
+    weight: 0.4,
+    score: (params, context) => scoreGrindSize(params.grindSize, context.recipe.idealGrind)
+  },
+  {
+    id: "americano_temp",
+    name: "Espresso Temperature",
+    conditions: [{ parameter: "drinkType", operator: "equals", value: "americano" }],
+    weight: 0.3,
+    score: (params, context) =>
+      calculateToleranceScore(params.temperature, context.recipe.idealTemp, context.recipe.tolerances.temp)
+  },
+  {
+    id: "americano_time",
+    name: "Brew Time",
+    conditions: [{ parameter: "drinkType", operator: "equals", value: "americano" }],
+    weight: 0.3,
+    score: (params, context) =>
+      calculateToleranceScore(params.brewTime, context.recipe.idealBrewTime, context.recipe.tolerances.time)
+  }
+];
+
+// ============================================================================
+// MATCHA RULES - Whisked matcha powder with milk
+// ============================================================================
+
+const MATCHA_RULES: Rule[] = [
+  {
+    id: "matcha_temp",
+    name: "Water Temperature",
+    conditions: [{ parameter: "drinkType", operator: "equals", value: "matcha" }],
+    weight: 0.4,
+    score: (params, context) =>
+      calculateToleranceScore(params.temperature, context.recipe.idealTemp, context.recipe.tolerances.temp),
+    feedback: (score) => {
+      if (score >= 90) return "Perfect matcha temperature!";
+      if (score >= 70) return "Temperature acceptable";
+      return "Too hot for matcha";
+    }
+  },
+  {
+    id: "matcha_milk_temp",
+    name: "Milk Temperature",
+    conditions: [
+      { parameter: "drinkType", operator: "equals", value: "matcha" },
+      { parameter: "milkType", operator: "not_equals", value: "none" }
+    ],
+    weight: 0.3,
+    score: (params, context) => {
+      if (!params.milkTemp || !context.recipe.idealMilkTemp) return 0;
+      return calculateToleranceScore(
+        params.milkTemp,
+        context.recipe.idealMilkTemp,
+        context.recipe.tolerances.milkTemp || 10
+      );
+    }
+  },
+  {
+    id: "matcha_foam",
+    name: "Foam Amount",
+    conditions: [
+      { parameter: "drinkType", operator: "equals", value: "matcha" },
+      { parameter: "milkType", operator: "not_equals", value: "none" }
+    ],
+    weight: 0.3,
+    score: (params, context) => {
+      if (params.foamAmount === undefined || !context.recipe.idealFoamAmount) return 0;
+      return calculateToleranceScore(
+        params.foamAmount,
+        context.recipe.idealFoamAmount,
+        context.recipe.tolerances.foam || 15
+      );
+    }
+  }
+];
+
+// ============================================================================
 // RECIPE DEFINITIONS
 // ============================================================================
 
@@ -322,6 +470,43 @@ export const RECIPES: Record<DrinkType, DrinkRecipe> = {
     idealBrewTime: 90,
     tolerances: { temp: 8, time: 15 },
     rules: IMMERSION_RULES
+  },
+
+  mocha: {
+    name: "Mocha",
+    category: "espresso-based",
+    description: "Espresso with chocolate and steamed milk",
+    idealGrind: "fine",
+    idealTemp: 200,
+    idealBrewTime: 25,
+    idealMilkTemp: 150,
+    idealFoamAmount: 30,
+    tolerances: { temp: 5, time: 3, milkTemp: 10, foam: 15 },
+    rules: MOCHA_RULES
+  },
+
+  americano: {
+    name: "Americano",
+    category: "espresso-based",
+    description: "Espresso with hot water",
+    idealGrind: "fine",
+    idealTemp: 200,
+    idealBrewTime: 25,
+    tolerances: { temp: 5, time: 3 },
+    rules: AMERICANO_RULES
+  },
+
+  matcha: {
+    name: "Matcha Latte",
+    category: "immersion",
+    description: "Whisked matcha powder with steamed milk",
+    idealGrind: "medium",
+    idealTemp: 175,
+    idealBrewTime: 30,
+    idealMilkTemp: 150,
+    idealFoamAmount: 25,
+    tolerances: { temp: 8, time: 10, milkTemp: 10, foam: 15 },
+    rules: MATCHA_RULES
   }
 };
 
@@ -334,5 +519,8 @@ export const CUSTOMER_ORDERS: Record<DrinkType, { order: string; payment: number
   latte: { order: "I'll have a latte, please", payment: 4.5 },
   cappuccino: { order: "Cappuccino, extra foam!", payment: 4.5 },
   pourover: { order: "Pour over, take your time", payment: 5 },
-  aeropress: { order: "Aeropress, medium roast", payment: 4 }
+  aeropress: { order: "Aeropress, medium roast", payment: 4 },
+  mocha: { order: "Mocha with whipped cream, please", payment: 5 },
+  americano: { order: "Americano, black", payment: 3.5 },
+  matcha: { order: "Matcha latte, please", payment: 5.5 }
 };

@@ -50,6 +50,9 @@ const MILK_PER_DRINK: Record<DrinkType, number> = {
   cappuccino: 180, // ml (6 oz)
   pourover: 0,
   aeropress: 0,
+  mocha: 240, // ml (8 oz with chocolate)
+  americano: 0,
+  matcha: 240, // ml (8 oz)
 }
 
 // ============================================================================

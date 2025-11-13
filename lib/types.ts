@@ -8,11 +8,13 @@
 
 export type GrindSize = "coarse" | "medium-coarse" | "medium" | "medium-fine" | "fine";
 export type DrinkCategory = "espresso-based" | "pour-over" | "immersion";
-export type DrinkType = "espresso" | "latte" | "cappuccino" | "pourover" | "aeropress";
+export type DrinkType = "espresso" | "latte" | "cappuccino" | "pourover" | "aeropress" | "mocha" | "americano" | "matcha";
 export type MilkType = "none" | "whole" | "skim" | "oat" | "almond";
+export type FoodType = "croissant" | "banana_bread" | "bagel" | "muffin";
 
 // Validation constants
-export const VALID_DRINKS: DrinkType[] = ["espresso", "latte", "cappuccino", "pourover", "aeropress"];
+export const VALID_DRINKS: DrinkType[] = ["espresso", "latte", "cappuccino", "pourover", "aeropress", "mocha", "americano", "matcha"];
+export const VALID_FOODS: FoodType[] = ["croissant", "banana_bread", "bagel", "muffin"];
 export const VALID_MILK_TYPES: Exclude<MilkType, "none">[] = ["whole", "skim", "oat", "almond"];
 
 export interface BrewParameters {
