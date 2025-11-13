@@ -75,3 +75,15 @@ npm run lint        # ESLint
 ---
 
 Built with [Next.js](https://nextjs.org) • [OpenRouter](https://openrouter.ai) • [Tailwind](https://tailwindcss.com)
+
+
+<img width="1497" height="1324" alt="image" src="https://github.com/user-attachments/assets/1f74e871-1ca6-4964-a452-e08a02b522cd" />
+
+<img width="1457" height="1031" alt="image" src="https://github.com/user-attachments/assets/356f7a06-37de-4600-8502-c91d5887e4d2" />
+
+<img width="1457" height="1031" alt="image" src="https://github.com/user-attachments/assets/2786b1eb-6ad3-4571-a768-83a1a6349579" />
+
+<img width="1266" height="339" alt="image" src="https://github.com/user-attachments/assets/9de33001-5d58-4d72-bdcc-78040c62610e" />
+
+<img width="1266" height="771" alt="image" src="https://github.com/user-attachments/assets/188f2b45-460c-46a4-9f32-5254decce3bf" />
+
