@@ -33,8 +33,8 @@ import { createDayState } from "./day-structure";
 // ============================================================================
 
 export const TEMP_RANGE = {
-  MIN: 170,
-  MAX: 212,
+  MIN: 77,
+  MAX: 100,
 } as const;
 
 export const BREW_TIME_RANGE = {
@@ -45,8 +45,8 @@ export const BREW_TIME_RANGE = {
 } as const;
 
 export const MILK_RANGE = {
-  TEMP_MIN: 120,
-  TEMP_MAX: 180,
+  TEMP_MIN: 49,
+  TEMP_MAX: 82,
   FOAM_MIN: 0,
   FOAM_MAX: 100,
 } as const;
@@ -181,7 +181,7 @@ export type {
 
 function validateBrewParameters(params: BrewParameters): void {
   if (params.temperature < TEMP_RANGE.MIN || params.temperature > TEMP_RANGE.MAX) {
-    throw new Error(`Temperature ${params.temperature}°F out of range [${TEMP_RANGE.MIN}-${TEMP_RANGE.MAX}]`);
+    throw new Error(`Temperature ${params.temperature}°C out of range [${TEMP_RANGE.MIN}-${TEMP_RANGE.MAX}]`);
   }
 
   if (params.brewTime < 0) {
@@ -190,7 +190,7 @@ function validateBrewParameters(params: BrewParameters): void {
 
   if (params.milkTemp !== undefined) {
     if (params.milkTemp < MILK_RANGE.TEMP_MIN || params.milkTemp > MILK_RANGE.TEMP_MAX) {
-      throw new Error(`Milk temperature ${params.milkTemp}°F out of range [${MILK_RANGE.TEMP_MIN}-${MILK_RANGE.TEMP_MAX}]`);
+      throw new Error(`Milk temperature ${params.milkTemp}°C out of range [${MILK_RANGE.TEMP_MIN}-${MILK_RANGE.TEMP_MAX}]`);
     }
   }
 
@@ -370,14 +370,14 @@ export function getDefaultParameters(drinkType: DrinkType): BrewParameters {
 
   const baseParams: BrewParameters = {
     grindSize: "medium",
-    temperature: 195,
+    temperature: 91,
     brewTime: recipe.category === "espresso-based" ? 25 : 90,
   };
 
   // Add milk parameters if needed
   if (recipe.category === "espresso-based" && drinkType !== "espresso") {
     baseParams.milkType = "whole";
-    baseParams.milkTemp = 150;
+    baseParams.milkTemp = 66;
     baseParams.foamAmount = 30;
   }
 

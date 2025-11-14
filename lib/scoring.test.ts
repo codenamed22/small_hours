@@ -12,7 +12,7 @@ describe('calculateToleranceScore', () => {
   })
 
   it('returns score within tolerance range (75-100)', () => {
-    // 3°F away from ideal with 5°F tolerance
+    // 3°C away from ideal with 5°C tolerance
     const score = calculateToleranceScore(203, 200, 5)
 
     // Should be between MIN_TOLERANCE_SCORE and PERFECT
@@ -27,7 +27,7 @@ describe('calculateToleranceScore', () => {
   })
 
   it('penalizes values outside tolerance', () => {
-    // 10°F away from ideal with 5°F tolerance (5°F excess)
+    // 10°C away from ideal with 5°C tolerance (5°C excess)
     const score = calculateToleranceScore(210, 200, 5)
 
     // Should be less than MIN_TOLERANCE_SCORE
@@ -36,7 +36,7 @@ describe('calculateToleranceScore', () => {
   })
 
   it('returns 0 for extreme deviations', () => {
-    // 100°F away with 5°F tolerance = 95°F excess
+    // 100°C away with 5°C tolerance = 95°C excess
     // Penalty: 95 * 15 = 1425 (capped at 75)
     // Score: 75 - 75 = 0
     const score = calculateToleranceScore(300, 200, 5)

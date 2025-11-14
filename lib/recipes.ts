@@ -417,9 +417,9 @@ export const RECIPES: Record<DrinkType, DrinkRecipe> = {
     category: "espresso-based",
     description: "A concentrated shot of pure coffee perfection",
     idealGrind: "fine",
-    idealTemp: 200,
+    idealTemp: 93,
     idealBrewTime: 25,
-    tolerances: { temp: 5, time: 3 },
+    tolerances: { temp: 3, time: 3 },
     rules: ESPRESSO_RULES
   },
 
@@ -428,11 +428,11 @@ export const RECIPES: Record<DrinkType, DrinkRecipe> = {
     category: "espresso-based",
     description: "Espresso with steamed milk and light foam",
     idealGrind: "fine",
-    idealTemp: 200,
+    idealTemp: 93,
     idealBrewTime: 25,
-    idealMilkTemp: 150,
+    idealMilkTemp: 66,
     idealFoamAmount: 20,
-    tolerances: { temp: 5, time: 3, milkTemp: 10, foam: 15 },
+    tolerances: { temp: 3, time: 3, milkTemp: 6, foam: 15 },
     rules: LATTE_RULES
   },
 
@@ -441,11 +441,11 @@ export const RECIPES: Record<DrinkType, DrinkRecipe> = {
     category: "espresso-based",
     description: "Equal parts espresso, steamed milk, and foam",
     idealGrind: "fine",
-    idealTemp: 200,
+    idealTemp: 93,
     idealBrewTime: 25,
-    idealMilkTemp: 150,
+    idealMilkTemp: 66,
     idealFoamAmount: 60,
-    tolerances: { temp: 5, time: 3, milkTemp: 10, foam: 15 },
+    tolerances: { temp: 3, time: 3, milkTemp: 6, foam: 15 },
     rules: CAPPUCCINO_RULES
   },
 
@@ -454,10 +454,10 @@ export const RECIPES: Record<DrinkType, DrinkRecipe> = {
     category: "pour-over",
     description: "Clean, bright coffee with manual pouring technique",
     idealGrind: "medium",
-    idealTemp: 205,
+    idealTemp: 96,
     idealBrewTime: 180,
     idealBloomTime: 30,
-    tolerances: { temp: 5, time: 20, bloom: 10 },
+    tolerances: { temp: 3, time: 20, bloom: 10 },
     rules: POUROVER_RULES
   },
 
@@ -466,9 +466,9 @@ export const RECIPES: Record<DrinkType, DrinkRecipe> = {
     category: "immersion",
     description: "Smooth, full-bodied coffee with pressure brewing",
     idealGrind: "medium-fine",
-    idealTemp: 185,
+    idealTemp: 85,
     idealBrewTime: 90,
-    tolerances: { temp: 8, time: 15 },
+    tolerances: { temp: 4, time: 15 },
     rules: IMMERSION_RULES
   },
 
@@ -477,11 +477,11 @@ export const RECIPES: Record<DrinkType, DrinkRecipe> = {
     category: "espresso-based",
     description: "Espresso with chocolate and steamed milk",
     idealGrind: "fine",
-    idealTemp: 200,
+    idealTemp: 93,
     idealBrewTime: 25,
-    idealMilkTemp: 150,
+    idealMilkTemp: 66,
     idealFoamAmount: 30,
-    tolerances: { temp: 5, time: 3, milkTemp: 10, foam: 15 },
+    tolerances: { temp: 3, time: 3, milkTemp: 6, foam: 15 },
     rules: MOCHA_RULES
   },
 
@@ -490,9 +490,9 @@ export const RECIPES: Record<DrinkType, DrinkRecipe> = {
     category: "espresso-based",
     description: "Espresso with hot water",
     idealGrind: "fine",
-    idealTemp: 200,
+    idealTemp: 93,
     idealBrewTime: 25,
-    tolerances: { temp: 5, time: 3 },
+    tolerances: { temp: 3, time: 3 },
     rules: AMERICANO_RULES
   },
 
@@ -501,11 +501,11 @@ export const RECIPES: Record<DrinkType, DrinkRecipe> = {
     category: "immersion",
     description: "Whisked matcha powder with steamed milk",
     idealGrind: "medium",
-    idealTemp: 175,
+    idealTemp: 79,
     idealBrewTime: 30,
-    idealMilkTemp: 150,
+    idealMilkTemp: 66,
     idealFoamAmount: 25,
-    tolerances: { temp: 8, time: 10, milkTemp: 10, foam: 15 },
+    tolerances: { temp: 4, time: 10, milkTemp: 6, foam: 15 },
     rules: MATCHA_RULES
   }
 };

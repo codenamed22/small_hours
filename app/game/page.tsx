@@ -1175,10 +1175,21 @@ export default function Game() {
                     <RisingSteam count={3} />
                   </div>
 
-                  <h2 className="text-lg font-bold mb-2 flex items-center gap-2 relative z-10">
-                    <span>☕</span>
-                    Brewing Station
-                  </h2>
+                  <div className="flex items-center justify-between mb-2 relative z-10">
+                    <h2 className="text-lg font-bold flex items-center gap-2">
+                      <span>☕</span>
+                      Brewing Station
+                    </h2>
+                    <button
+                      onClick={() => setShowHelp(true)}
+                      className="text-amber-100 hover:text-white transition-colors p-1"
+                      aria-label="Show recipe guide"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </button>
+                  </div>
 
                   <div className="space-y-2">
                     {/* Grind Size */}
@@ -1204,12 +1215,12 @@ export default function Game() {
                     {/* Temperature */}
                     <div>
                       <label className="block text-xs font-semibold mb-1 text-amber-100">
-                        Water Temperature: {gameState.brewParams.temperature}°F
+                        Water Temperature: {gameState.brewParams.temperature}°C
                       </label>
                       <input
                         type="range"
-                        min="170"
-                        max="212"
+                        min="77"
+                        max="100"
                         value={gameState.brewParams.temperature}
                         onChange={(e) =>
                           updateBrewParam("temperature", parseInt(e.target.value))
@@ -1217,8 +1228,8 @@ export default function Game() {
                         className="w-full"
                       />
                       <div className="flex justify-between text-xs text-amber-100 mt-1">
-                        <span className="text-xs">170°F</span>
-                        <span className="text-xs">212°F</span>
+                        <span className="text-xs">77°C</span>
+                        <span className="text-xs">100°C</span>
                       </div>
                     </div>
 
@@ -1271,12 +1282,12 @@ export default function Game() {
 
                         <div>
                           <label className="block text-xs font-semibold mb-1 text-amber-100">
-                            Milk Temperature: {gameState.brewParams.milkTemp}°F
+                            Milk Temperature: {gameState.brewParams.milkTemp}°C
                           </label>
                           <input
                             type="range"
-                            min="120"
-                            max="180"
+                            min="49"
+                            max="82"
                             value={gameState.brewParams.milkTemp}
                             onChange={(e) =>
                               updateBrewParam("milkTemp", parseInt(e.target.value))
@@ -1284,8 +1295,8 @@ export default function Game() {
                             className="w-full"
                           />
                           <div className="flex justify-between text-xs text-amber-100 mt-1">
-                            <span className="text-xs">120°F</span>
-                            <span className="text-xs">180°F</span>
+                            <span className="text-xs">49°C</span>
+                            <span className="text-xs">82°C</span>
                           </div>
                         </div>
 
@@ -1374,6 +1385,17 @@ export default function Game() {
                         "Brew"
                       )}
                     </motion.button>
+
+                    {/* Recipe Help Button */}
+                    <button
+                      onClick={() => setShowHelp(true)}
+                      className="w-full bg-amber-100 text-amber-900 font-semibold px-4 py-1.5 rounded-lg hover:bg-amber-200 transition-all text-xs mt-1 flex items-center justify-center gap-1"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      View Recipe Guide
+                    </button>
                   </div>
                 </motion.div>
               )}
@@ -1519,89 +1541,6 @@ export default function Game() {
                     brewParams={gameState.brewParams}
                     isBrewing={isBrewing}
                   />
-
-                  {/* Help Dialog Overlay */}
-                  <AnimatePresence>
-                    {showHelp && (
-                      <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-                        onClick={() => setShowHelp(false)}
-                      >
-                        <motion.div
-                          initial={{ scale: 0.9, y: 20 }}
-                          animate={{ scale: 1, y: 0 }}
-                          exit={{ scale: 0.9, y: 20 }}
-                          className="bg-white rounded-2xl shadow-2xl p-6 max-w-md w-full"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <div className="flex items-center justify-between mb-4">
-                            <h3 className="text-xl font-bold text-amber-900 flex items-center gap-2">
-                              <span>📖</span>
-                              {recipe.name} Recipe
-                            </h3>
-                            <button
-                              onClick={() => setShowHelp(false)}
-                              className="text-gray-400 hover:text-gray-600 transition-colors"
-                            >
-                              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                              </svg>
-                            </button>
-                          </div>
-
-                          <div className="bg-amber-50 p-4 rounded-lg mb-4">
-                            <h4 className="font-semibold text-amber-900 mb-3">Ideal Parameters</h4>
-                            <div className="grid grid-cols-2 gap-3 text-sm">
-                              <div>
-                                <div className="text-xs text-gray-600">Grind Size</div>
-                                <div className="font-semibold text-gray-900">{recipe.idealGrind}</div>
-                              </div>
-                              <div>
-                                <div className="text-xs text-gray-600">Temperature</div>
-                                <div className="font-semibold text-gray-900">{recipe.idealTemp}°F</div>
-                              </div>
-                              <div>
-                                <div className="text-xs text-gray-600">Brew Time</div>
-                                <div className="font-semibold text-gray-900">{recipe.idealBrewTime}s</div>
-                              </div>
-                              {recipe.idealMilkTemp && (
-                                <div>
-                                  <div className="text-xs text-gray-600">Milk Temp</div>
-                                  <div className="font-semibold text-gray-900">{recipe.idealMilkTemp}°F</div>
-                                </div>
-                              )}
-                              {recipe.idealBloomTime && (
-                                <div>
-                                  <div className="text-xs text-gray-600">Bloom Time</div>
-                                  <div className="font-semibold text-gray-900">{recipe.idealBloomTime}s</div>
-                                </div>
-                              )}
-                              {recipe.idealFoamAmount !== undefined && (
-                                <div>
-                                  <div className="text-xs text-gray-600">Foam Amount</div>
-                                  <div className="font-semibold text-gray-900">{recipe.idealFoamAmount}%</div>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-
-                          <div className="text-sm text-gray-700 italic">
-                            {recipe.description}
-                          </div>
-
-                          <button
-                            onClick={() => setShowHelp(false)}
-                            className="mt-4 w-full bg-amber-500 text-white font-semibold px-4 py-2 rounded-lg hover:bg-amber-600 transition-all"
-                          >
-                            Got it!
-                          </button>
-                        </motion.div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
                 </>
               )}
             </div>
@@ -1618,6 +1557,89 @@ export default function Game() {
           </div>
         </div>
       </main>
+
+      {/* Help Dialog Overlay - Positioned at top level */}
+      <AnimatePresence>
+        {showHelp && gameState.customer && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            onClick={() => setShowHelp(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              className="bg-white rounded-2xl shadow-2xl p-6 max-w-md w-full max-h-[90vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xl font-bold text-amber-900 flex items-center gap-2">
+                  <span>📖</span>
+                  {recipe.name} Recipe
+                </h3>
+                <button
+                  onClick={() => setShowHelp(false)}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              <div className="bg-amber-50 p-4 rounded-lg mb-4">
+                <h4 className="font-semibold text-amber-900 mb-3">Ideal Parameters</h4>
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div>
+                    <div className="text-xs text-gray-600">Grind Size</div>
+                    <div className="font-semibold text-gray-900">{recipe.idealGrind}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-gray-600">Temperature</div>
+                    <div className="font-semibold text-gray-900">{recipe.idealTemp}°C</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-gray-600">Brew Time</div>
+                    <div className="font-semibold text-gray-900">{recipe.idealBrewTime}s</div>
+                  </div>
+                  {recipe.idealMilkTemp && (
+                    <div>
+                      <div className="text-xs text-gray-600">Milk Temp</div>
+                      <div className="font-semibold text-gray-900">{recipe.idealMilkTemp}°C</div>
+                    </div>
+                  )}
+                  {recipe.idealBloomTime && (
+                    <div>
+                      <div className="text-xs text-gray-600">Bloom Time</div>
+                      <div className="font-semibold text-gray-900">{recipe.idealBloomTime}s</div>
+                    </div>
+                  )}
+                  {recipe.idealFoamAmount !== undefined && (
+                    <div>
+                      <div className="text-xs text-gray-600">Foam Amount</div>
+                      <div className="font-semibold text-gray-900">{recipe.idealFoamAmount}%</div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="text-sm text-gray-700 italic">
+                {recipe.description}
+              </div>
+
+              <button
+                onClick={() => setShowHelp(false)}
+                className="mt-4 w-full bg-amber-500 text-white font-semibold px-4 py-2 rounded-lg hover:bg-amber-600 transition-all"
+              >
+                Got it!
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
     </ErrorBoundary>
   );
