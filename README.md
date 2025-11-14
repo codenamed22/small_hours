@@ -1,4 +1,4 @@
-# Small Hours ☕
+<img width="1260" height="819" alt="image" src="https://github.com/user-attachments/assets/efdb454a-0ec4-4fc0-a68e-9c7aa027434f" /># Small Hours ☕
 
 A coffee shop simulator where brewing matters and customers have stories.
 
@@ -79,7 +79,11 @@ Built with [Next.js](https://nextjs.org) • [OpenRouter](https://openrouter.ai)
 
 <img width="1497" height="1324" alt="image" src="https://github.com/user-attachments/assets/1f74e871-1ca6-4964-a452-e08a02b522cd" />
 
-<img width="1457" height="1031" alt="image" src="https://github.com/user-attachments/assets/356f7a06-37de-4600-8502-c91d5887e4d2" />
+<img width="1260" height="819" alt="image" src="https://github.com/user-attachments/assets/8b8a5d7b-9e9e-4d2c-b6ba-c7aa7eb8e8b5" />
+
+<img width="1260" height="819" alt="image" src="https://github.com/user-attachments/assets/b7d6be2e-9475-4605-9e0d-0db74cd166c0" />
+
+<img width="1260" height="819" alt="image" src="https://github.com/user-attachments/assets/6501f722-8d0c-403a-adb3-2cbf42da7dbf" />
 
 <img width="1457" height="1031" alt="image" src="https://github.com/user-attachments/assets/2786b1eb-6ad3-4571-a768-83a1a6349579" />
 
