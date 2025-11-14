@@ -3,6 +3,18 @@
 import { useState, useEffect, useRef } from "react";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AuditLogViewer } from "@/components/AuditLogViewer";
+import { DrinkIcon } from "@/components/DrinkIcons";
+import { BrewingProgress } from "@/components/BrewingProgress";
+import { Particles, Confetti, FloatingMoney } from "@/components/Particles";
+import { CustomerAvatar } from "@/components/CustomerAvatar";
+import { CafeBackground } from "@/components/CafeBackground";
+import { RisingSteam, FloatingDust, PulsingGlow } from "@/components/AmbientEffects";
+import { DrinkResultVisual } from "@/components/DrinkResultVisual";
+import { CustomerReaction } from "@/components/CustomerReaction";
+import { CompactInventory } from "@/components/CompactInventory";
+import { BrewingAnimation } from "@/components/BrewingAnimation";
+import { calculateTimeOfDay, getLightingForTime, formatTime, getTimeEmoji } from "@/lib/time-system";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   GameState,
   BrewParameters,
@@ -59,6 +71,12 @@ export default function Game() {
   const [showMemoryStats, setShowMemoryStats] = useState(false);
   const [lastSaveTime, setLastSaveTime] = useState<number | null>(null);
   const [apiError, setApiError] = useState<string | null>(null);
+  const [showExcellenceParticles, setShowExcellenceParticles] = useState(false);
+  const [showConfetti, setShowConfetti] = useState(false);
+  const [showMoneyFloat, setShowMoneyFloat] = useState(false);
+  const [moneyAmount, setMoneyAmount] = useState(0);
+  const [showReaction, setShowReaction] = useState(false);
+  const [showSaveMenu, setShowSaveMenu] = useState(false);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Load saved game on client mount only
@@ -324,6 +342,7 @@ export default function Game() {
 
             if (!check.safe) {
               alert(`⚠️ ALLERGEN WARNING!\n\n${check.blockers.join("\n")}\n\nPlease adjust the drink parameters before brewing.`);
+              setIsBrewing(false);
               return;
             }
 
@@ -347,8 +366,15 @@ export default function Game() {
 
       if (!stockCheck.available) {
         alert(`Out of stock: ${stockCheck.missing.join(", ")}`);
+        setIsBrewing(false);
         return;
       }
+
+      // Wait for brewing animation to complete
+      // Animation duration is based on brewTime parameter
+      const animationDuration = gameState.brewParams.brewTime * 1000; // Convert to milliseconds
+
+      await new Promise(resolve => setTimeout(resolve, animationDuration));
 
       // Brew the drink
       const result = brewDrink(gameState.customer.drinkType, gameState.brewParams);
@@ -365,6 +391,22 @@ export default function Game() {
         result,
         inventory: newInventory,
       }));
+
+      // Trigger customer reaction animation
+      setTimeout(() => {
+        setShowReaction(true);
+      }, 800); // Delay to let drink visual appear first
+
+      // Trigger particle effects based on quality
+      if (result.quality >= 95) {
+        // Perfect brew - confetti!
+        setShowConfetti(true);
+        setTimeout(() => setShowConfetti(false), 3000);
+      } else if (result.quality >= 85) {
+        // Excellent brew - stars!
+        setShowExcellenceParticles(true);
+        setTimeout(() => setShowExcellenceParticles(false), 2000);
+      }
     } finally {
       setIsBrewing(false);
     }
@@ -377,6 +419,12 @@ export default function Game() {
     setIsServing(true);
     setShowHelp(false); // Reset help when serving
     setAllergenCheck(null); // Reset allergen check
+    setShowReaction(false); // Reset reaction animation
+
+    // Show floating money animation
+    setMoneyAmount(gameState.customer.payment);
+    setShowMoneyFloat(true);
+    setTimeout(() => setShowMoneyFloat(false), 2000);
 
     setGameState((prev) => {
       let newQueue = prev.queue;
@@ -464,50 +512,112 @@ export default function Game() {
   const hasMilk = requiredParams.includes("milkType");
   const hasBloom = requiredParams.includes("bloomTime");
 
+  // Calculate time of day based on progress
+  const timeData = gameState.dayState
+    ? calculateTimeOfDay(
+        gameState.dayState.stats.customersServed,
+        gameState.dayState.targetCustomers
+      )
+    : calculateTimeOfDay(0, 20);
+  const lighting = getLightingForTime(timeData);
+
   return (
     <ErrorBoundary>
-      <div className="min-h-screen bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-50">
-      <AuditLogViewer />
-      <main className="container mx-auto px-4 py-8">
-        <div className="max-w-6xl mx-auto">
-          {/* Header */}
-          <div className="text-center mb-8">
-            <h1 className="text-5xl font-bold text-amber-900 mb-2">
-              Small Hours
-            </h1>
-            <p className="text-amber-700">A Coffee Craft Simulator</p>
+      <div className="h-screen bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-50 relative overflow-hidden flex flex-col">
+      {/* Cafe Background Scene */}
+      <div className="absolute inset-0 opacity-20 pointer-events-none">
+        <CafeBackground lighting={lighting} />
+      </div>
 
-            {/* Save Menu */}
-            <div className="mt-4 flex justify-center gap-2 flex-wrap">
-              <button
-                onClick={handleManualSave}
-                className="text-sm bg-green-100 text-green-800 px-3 py-1 rounded-lg font-medium hover:bg-green-200 transition-all"
-              >
-                💾 Save
-              </button>
-              <button
-                onClick={handleExport}
-                className="text-sm bg-blue-100 text-blue-800 px-3 py-1 rounded-lg font-medium hover:bg-blue-200 transition-all"
-              >
-                📤 Export
-              </button>
-              <button
-                onClick={handleImport}
-                className="text-sm bg-purple-100 text-purple-800 px-3 py-1 rounded-lg font-medium hover:bg-purple-200 transition-all"
-              >
-                📥 Import
-              </button>
-              <button
-                onClick={handleReset}
-                className="text-sm bg-red-100 text-red-800 px-3 py-1 rounded-lg font-medium hover:bg-red-200 transition-all"
-              >
-                🔄 Reset
-              </button>
-              {lastSaveTime && (
-                <span className="text-xs text-gray-500 self-center">
-                  Last saved: {new Date(lastSaveTime).toLocaleTimeString()}
-                </span>
+      {/* Atmospheric lighting overlay */}
+      <div
+        className="absolute inset-0 pointer-events-none transition-colors duration-1000"
+        style={{
+          backgroundColor: lighting.overlayColor,
+          opacity: lighting.overlayOpacity * 0.5,
+        }}
+      />
+
+      {/* Floating dust particles for ambiance */}
+      <FloatingDust count={15} />
+
+      <AuditLogViewer />
+      <main className="container mx-auto px-4 py-3 relative z-10 flex-1 flex flex-col overflow-hidden">
+        <div className="max-w-7xl mx-auto w-full flex-1 flex flex-col overflow-hidden">
+          {/* Header */}
+          <div className="relative mb-3">
+            {/* Hamburger Menu Button */}
+            <button
+              onClick={() => setShowSaveMenu(!showSaveMenu)}
+              className="absolute top-0 right-0 p-2 rounded-lg hover:bg-amber-100 transition-all z-10"
+              aria-label="Menu"
+            >
+              <svg className="w-6 h-6 text-amber-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
+
+            {/* Dropdown Menu */}
+            <AnimatePresence>
+              {showSaveMenu && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  className="absolute top-12 right-0 bg-white rounded-xl shadow-2xl p-3 z-20 min-w-[200px]"
+                >
+                  <div className="flex flex-col gap-2">
+                    <button
+                      onClick={() => {
+                        handleManualSave();
+                        setShowSaveMenu(false);
+                      }}
+                      className="text-sm bg-green-100 text-green-800 px-3 py-2 rounded-lg font-medium hover:bg-green-200 transition-all text-left"
+                    >
+                      💾 Save Game
+                    </button>
+                    <button
+                      onClick={() => {
+                        handleExport();
+                        setShowSaveMenu(false);
+                      }}
+                      className="text-sm bg-blue-100 text-blue-800 px-3 py-2 rounded-lg font-medium hover:bg-blue-200 transition-all text-left"
+                    >
+                      📤 Export Save
+                    </button>
+                    <button
+                      onClick={() => {
+                        handleImport();
+                        setShowSaveMenu(false);
+                      }}
+                      className="text-sm bg-purple-100 text-purple-800 px-3 py-2 rounded-lg font-medium hover:bg-purple-200 transition-all text-left"
+                    >
+                      📥 Import Save
+                    </button>
+                    <button
+                      onClick={() => {
+                        handleReset();
+                        setShowSaveMenu(false);
+                      }}
+                      className="text-sm bg-red-100 text-red-800 px-3 py-2 rounded-lg font-medium hover:bg-red-200 transition-all text-left"
+                    >
+                      🔄 Reset Game
+                    </button>
+                    {lastSaveTime && (
+                      <div className="text-xs text-gray-500 px-3 py-1 border-t border-gray-200 mt-1">
+                        Last saved: {new Date(lastSaveTime).toLocaleTimeString()}
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
               )}
+            </AnimatePresence>
+
+            <div className="text-center">
+              <h1 className="text-3xl font-bold text-amber-900 mb-1">
+                Small Hours
+              </h1>
+              <p className="text-sm text-amber-700">A Coffee Craft Simulator</p>
             </div>
           </div>
 
@@ -538,58 +648,65 @@ export default function Game() {
           )}
 
           {/* Stats Bar */}
-          <div className="bg-white/90 backdrop-blur rounded-xl shadow-lg p-4 mb-6">
-            <div className="flex justify-between items-center">
-              <div>
-                <span className="text-gray-600">Money:</span>
-                <span className="ml-2 text-2xl font-bold text-green-600">
-                  ${gameState.money.toFixed(2)}
-                </span>
-              </div>
-              <div>
-                <span className="text-gray-600">Drinks Served:</span>
-                <span className="ml-2 text-2xl font-bold text-amber-600">
-                  {gameState.drinksServed}
-                </span>
-              </div>
-              {gameState.queue && (
-                <div>
-                  <span className="text-gray-600">Queue:</span>
-                  <span className="ml-2 text-2xl font-bold text-blue-600">
-                    {getPendingTickets(gameState.queue).length}
+          <div className="bg-white/90 backdrop-blur rounded-xl shadow-lg p-3 mb-3">
+            <div className="flex justify-between items-center text-sm gap-4">
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <span className="text-2xl">💰</span>
+                  <span className="text-xl font-bold text-green-600">
+                    ${gameState.money.toFixed(2)}
                   </span>
                 </div>
-              )}
-              {gameState.customerMemory && gameState.customerMemory.totalCustomersServed > 0 && (
-                <button
-                  onClick={() => setShowMemoryStats(!showMemoryStats)}
-                  className="text-sm bg-purple-100 text-purple-800 px-3 py-2 rounded-lg font-semibold hover:bg-purple-200 transition-all"
-                >
-                  {showMemoryStats ? "Hide" : "Show"} Customer Stats
-                </button>
-              )}
+                <div className="flex items-center gap-2">
+                  <span className="text-2xl">☕</span>
+                  <span className="text-xl font-bold text-amber-600">
+                    {gameState.drinksServed}
+                  </span>
+                </div>
+                {gameState.queue && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-2xl">📋</span>
+                    <span className="text-xl font-bold text-blue-600">
+                      {getPendingTickets(gameState.queue).length}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center gap-3">
+                <CompactInventory inventory={gameState.inventory} />
+
+                {gameState.customerMemory && gameState.customerMemory.totalCustomersServed > 0 && (
+                  <button
+                    onClick={() => setShowMemoryStats(!showMemoryStats)}
+                    className="text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded-lg font-semibold hover:bg-purple-200 transition-all whitespace-nowrap"
+                  >
+                    {showMemoryStats ? "Hide" : "Show"} Stats
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* Memory Stats Panel */}
             {showMemoryStats && gameState.customerMemory && (() => {
               const stats = getMemoryStats(gameState.customerMemory);
               return (
-                <div className="mt-4 pt-4 border-t border-gray-200 grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="mt-2 pt-2 border-t border-gray-200 grid grid-cols-4 gap-3 text-xs">
                   <div className="text-center">
-                    <div className="text-sm text-gray-600">Total Customers</div>
-                    <div className="text-xl font-bold text-purple-600">{stats.totalCustomers}</div>
+                    <div className="text-gray-600">Total Customers</div>
+                    <div className="text-lg font-bold text-purple-600">{stats.totalCustomers}</div>
                   </div>
                   <div className="text-center">
-                    <div className="text-sm text-gray-600">Returning Rate</div>
-                    <div className="text-xl font-bold text-blue-600">{stats.returningRate.toFixed(0)}%</div>
+                    <div className="text-gray-600">Returning Rate</div>
+                    <div className="text-lg font-bold text-blue-600">{stats.returningRate.toFixed(0)}%</div>
                   </div>
                   <div className="text-center">
-                    <div className="text-sm text-gray-600">Regulars</div>
-                    <div className="text-xl font-bold text-amber-600">{stats.regularCustomers + stats.favoriteCustomers}</div>
+                    <div className="text-gray-600">Regulars</div>
+                    <div className="text-lg font-bold text-amber-600">{stats.regularCustomers + stats.favoriteCustomers}</div>
                   </div>
                   <div className="text-center">
-                    <div className="text-sm text-gray-600">Avg. Satisfaction</div>
-                    <div className="text-xl font-bold text-green-600">{stats.averageSatisfaction}</div>
+                    <div className="text-gray-600">Avg. Satisfaction</div>
+                    <div className="text-lg font-bold text-green-600">{stats.averageSatisfaction}</div>
                   </div>
                 </div>
               );
@@ -754,25 +871,22 @@ export default function Game() {
 
               {/* SERVICE PHASE - Show day progress */}
               {gameState.dayState.phase === "service" && (
-                <div className="bg-gradient-to-r from-amber-500 to-orange-500 rounded-xl shadow-lg p-4 mb-6 text-white">
-                  <div className="flex justify-between items-center mb-2">
-                    <div className="font-bold">Day {gameState.dayState.dayNumber} - Service</div>
-                    <button
-                      onClick={handleEndDay}
-                      className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg text-sm font-semibold transition-all"
-                    >
-                      🌙 Close Cafe
-                    </button>
-                  </div>
-                  <div className="flex items-center gap-4">
+                <div className="bg-gradient-to-r from-amber-500 to-orange-500 rounded-xl shadow-lg p-2 mb-3 text-white">
+                  <div className="flex items-center gap-3">
+                    {/* Day and Time */}
+                    <div className="text-sm font-bold whitespace-nowrap">
+                      Day {gameState.dayState.dayNumber} {getTimeEmoji(timeData)}
+                    </div>
+
+                    {/* Progress Bar */}
                     <div className="flex-1">
-                      <div className="flex justify-between text-sm mb-1">
-                        <span>Progress</span>
+                      <div className="flex justify-between text-xs mb-0.5 opacity-90">
+                        <span>{formatTime(timeData)}</span>
                         <span>{gameState.dayState.stats.customersServed} / {gameState.dayState.targetCustomers}</span>
                       </div>
-                      <div className="w-full bg-white/20 rounded-full h-3">
+                      <div className="w-full bg-white/20 rounded-full h-2">
                         <div
-                          className="bg-white h-3 rounded-full transition-all"
+                          className="bg-white h-2 rounded-full transition-all"
                           style={{
                             width: `${Math.min(
                               (gameState.dayState.stats.customersServed / gameState.dayState.targetCustomers) * 100,
@@ -782,10 +896,20 @@ export default function Game() {
                         />
                       </div>
                     </div>
-                    <div className="text-right">
-                      <div className="text-sm opacity-90">Today's Earnings</div>
-                      <div className="text-2xl font-bold">${gameState.dayState.stats.totalEarnings.toFixed(2)}</div>
+
+                    {/* Earnings */}
+                    <div className="text-right whitespace-nowrap">
+                      <div className="text-xs opacity-90">Today</div>
+                      <div className="text-lg font-bold">${gameState.dayState.stats.totalEarnings.toFixed(2)}</div>
                     </div>
+
+                    {/* Close Button */}
+                    <button
+                      onClick={handleEndDay}
+                      className="bg-white/20 hover:bg-white/30 px-3 py-1 rounded-lg text-xs font-semibold transition-all whitespace-nowrap"
+                    >
+                      🌙 Close
+                    </button>
                   </div>
                 </div>
               )}
@@ -794,7 +918,7 @@ export default function Game() {
 
           {/* Queue Panel */}
           {gameState.queue && getPendingTickets(gameState.queue).length > 0 && (
-            <div className="bg-blue-50/90 backdrop-blur rounded-xl shadow-lg p-4 mb-6">
+            <div className="bg-blue-50/90 backdrop-blur rounded-xl shadow-lg p-3 mb-3">
               <h3 className="text-lg font-bold text-blue-900 mb-3 flex items-center gap-2">
                 <span>📋</span>
                 Waiting Customers
@@ -830,72 +954,51 @@ export default function Game() {
             </div>
           )}
 
-          <div className="grid md:grid-cols-2 gap-6">
-            {/* Left Column: Customer & Brewing */}
-            <div className="space-y-6">
-              {/* Inventory Panel */}
-              <div className="bg-white/90 backdrop-blur rounded-2xl shadow-xl p-6">
-                <h2 className="text-2xl font-bold text-amber-900 mb-4 flex items-center gap-2">
-                  <span>📦</span>
-                  Inventory
-                </h2>
-
-                <div className="space-y-3">
-                  {/* Coffee Beans */}
-                  <div className="bg-amber-50 p-3 rounded-lg">
-                    <div className="flex justify-between items-center">
-                      <span className="font-semibold text-gray-700">Coffee Beans</span>
-                      <span className="text-lg font-bold text-amber-600">
-                        {getTotalBeans(gameState.inventory)}g
-                      </span>
-                    </div>
+          {/* Low Stock Warnings Banner */}
+          {getLowStockWarnings(gameState.inventory).length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-red-100 border-l-4 border-red-500 text-red-800 p-2 mb-3 rounded-lg shadow-md"
+            >
+              <div className="flex items-center gap-2">
+                <span className="text-xl">⚠️</span>
+                <div className="flex-1">
+                  <div className="font-bold text-sm">Low Stock Alert</div>
+                  <div className="text-xs">
+                    {getLowStockWarnings(gameState.inventory).join(" • ")}
                   </div>
-
-                  {/* Milk Inventory */}
-                  {Object.entries(gameState.inventory.milks)
-                    .filter(([type, amount]) => type !== "none" && amount > 0)
-                    .map(([type, amount]) => (
-                      <div key={type} className="bg-blue-50 p-3 rounded-lg">
-                        <div className="flex justify-between items-center">
-                          <span className="font-semibold text-gray-700 capitalize">
-                            {type} Milk
-                          </span>
-                          <span className="text-lg font-bold text-blue-600">
-                            {amount}ml
-                          </span>
-                        </div>
-                      </div>
-                    ))}
                 </div>
-
-                {/* Low Stock Warnings */}
-                {getLowStockWarnings(gameState.inventory).length > 0 && (
-                  <div className="mt-4 p-3 bg-red-100 border border-red-300 text-red-800 rounded-lg">
-                    <div className="font-bold mb-2">⚠️ Low Stock Warnings</div>
-                    {getLowStockWarnings(gameState.inventory).map((warning, i) => (
-                      <div key={i} className="text-sm">
-                        • {warning}
-                      </div>
-                    ))}
-                  </div>
-                )}
               </div>
+            </motion.div>
+          )}
 
+          <div className="grid md:grid-cols-2 gap-4 flex-1 overflow-hidden">
+            {/* Left Column: Customer & Brewing */}
+            <div className="space-y-3 overflow-y-auto pr-2 relative z-20">
               {/* Customer Card */}
-              <div className="bg-white/90 backdrop-blur rounded-2xl shadow-xl p-6">
-                <h2 className="text-2xl font-bold text-amber-900 mb-4 flex items-center gap-2">
+              <div className="bg-white/90 backdrop-blur rounded-xl shadow-xl p-3">
+                <h2 className="text-lg font-bold text-amber-900 mb-2 flex items-center gap-2">
                   <span>👤</span>
                   Customer
                 </h2>
 
+                <AnimatePresence mode="wait">
                 {gameState.customer ? (
+                  <motion.div
+                    key="customer-present"
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: 20 }}
+                    transition={{ duration: 0.3 }}
+                  >
                   <div>
-                    <div className="flex items-center gap-2 mb-3">
-                      <span className="text-2xl">
-                        {gameState.customer.mood === "happy" ? "😊" :
-                         gameState.customer.mood === "stressed" ? "😰" :
-                         gameState.customer.mood === "tired" ? "😴" : "😐"}
-                      </span>
+                    <div className="flex items-center gap-3 mb-3">
+                      <CustomerAvatar
+                        mood={gameState.customer.mood}
+                        className="w-16 h-16"
+                        animated={true}
+                      />
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
                           <p className="text-lg font-semibold">{gameState.customer.name}</p>
@@ -946,9 +1049,21 @@ export default function Game() {
                       return null;
                     })()}
 
-                    <p className="text-base mb-3 bg-amber-50 p-3 rounded-lg border-l-4 border-amber-400">
-                      &quot;{gameState.customer.order}&quot;
-                    </p>
+                    {/* Order with drink icon */}
+                    <div className="mb-3 bg-amber-50 p-4 rounded-lg border-l-4 border-amber-400">
+                      <div className="flex items-center gap-4">
+                        <motion.div
+                          initial={{ scale: 0, rotate: -180 }}
+                          animate={{ scale: 1, rotate: 0 }}
+                          transition={{ type: "spring", stiffness: 260, damping: 20 }}
+                        >
+                          <DrinkIcon type={gameState.customer.drinkType} className="w-20 h-20" animated={true} />
+                        </motion.div>
+                        <p className="text-base flex-1">
+                          &quot;{gameState.customer.order}&quot;
+                        </p>
+                      </div>
+                    </div>
 
                     {/* Allergen Warning */}
                     {gameState.customer.allergens && gameState.customer.allergens.length > 0 && (
@@ -980,8 +1095,16 @@ export default function Game() {
                       </span>
                     </div>
                   </div>
+                  </motion.div>
                 ) : (
-                  <div className="text-center py-4">
+                  <motion.div
+                    key="customer-absent"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    transition={{ duration: 0.3 }}
+                    className="text-center py-4"
+                  >
                     {isGeneratingCustomer ? (
                       <div className="py-8">
                         <div className="text-6xl mb-4">🚪</div>
@@ -998,9 +1121,11 @@ export default function Game() {
                       </div>
                     )}
 
-                    <button
+                    <motion.button
                       onClick={startNewOrder}
                       disabled={isGeneratingCustomer}
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
                       className="bg-gradient-to-r from-amber-500 to-orange-500 text-white px-6 py-3 rounded-xl font-semibold hover:from-amber-600 hover:to-orange-600 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:from-amber-400 disabled:to-orange-400 flex items-center justify-center gap-2 mx-auto"
                     >
                       {isGeneratingCustomer ? (
@@ -1026,23 +1151,39 @@ export default function Game() {
                       ) : (
                         "Open the Door"
                       )}
-                    </button>
-                  </div>
+                    </motion.button>
+                  </motion.div>
                 )}
+                </AnimatePresence>
               </div>
 
               {/* Brewing Controls */}
+              <AnimatePresence>
               {gameState.customer && !gameState.result && (
-                <div className="bg-gradient-to-br from-amber-500 to-orange-500 rounded-2xl shadow-xl p-6 text-white">
-                  <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  transition={{ duration: 0.4, delay: 0.1 }}
+                  className="bg-gradient-to-br from-amber-500 to-orange-500 rounded-xl shadow-xl p-3 text-white relative overflow-hidden"
+                >
+                  {/* Steam rising from brewing station */}
+                  <div className="absolute top-0 left-1/4">
+                    <RisingSteam count={3} />
+                  </div>
+                  <div className="absolute top-0 right-1/4">
+                    <RisingSteam count={3} />
+                  </div>
+
+                  <h2 className="text-lg font-bold mb-2 flex items-center gap-2 relative z-10">
                     <span>☕</span>
                     Brewing Station
                   </h2>
 
-                  <div className="space-y-4">
+                  <div className="space-y-2">
                     {/* Grind Size */}
                     <div>
-                      <label className="block text-sm font-semibold mb-2 text-amber-100">
+                      <label className="block text-xs font-semibold mb-1 text-amber-100">
                         Grind Size
                       </label>
                       <select
@@ -1050,7 +1191,7 @@ export default function Game() {
                         onChange={(e) =>
                           updateBrewParam("grindSize", e.target.value as GrindSize)
                         }
-                        className="w-full px-4 py-2 rounded-lg text-gray-800 font-medium"
+                        className="w-full px-2 py-1 rounded-lg text-gray-800 font-medium text-sm"
                       >
                         {grindSizes.map((size) => (
                           <option key={size} value={size}>
@@ -1062,7 +1203,7 @@ export default function Game() {
 
                     {/* Temperature */}
                     <div>
-                      <label className="block text-sm font-semibold mb-2 text-amber-100">
+                      <label className="block text-xs font-semibold mb-1 text-amber-100">
                         Water Temperature: {gameState.brewParams.temperature}°F
                       </label>
                       <input
@@ -1076,14 +1217,14 @@ export default function Game() {
                         className="w-full"
                       />
                       <div className="flex justify-between text-xs text-amber-100 mt-1">
-                        <span>170°F (Cool)</span>
-                        <span>212°F (Boiling)</span>
+                        <span className="text-xs">170°F</span>
+                        <span className="text-xs">212°F</span>
                       </div>
                     </div>
 
                     {/* Brew Time */}
                     <div>
-                      <label className="block text-sm font-semibold mb-2 text-amber-100">
+                      <label className="block text-xs font-semibold mb-1 text-amber-100">
                         {recipe.category === "espresso-based" ? "Pull Time" : "Brew Time"}: {gameState.brewParams.brewTime}s
                       </label>
                       <input
@@ -1097,20 +1238,20 @@ export default function Game() {
                         className="w-full"
                       />
                       <div className="flex justify-between text-xs text-amber-100 mt-1">
-                        <span>{recipe.category === "espresso-based" ? "15s (Fast)" : "30s (Quick)"}</span>
-                        <span>{recipe.category === "espresso-based" ? "35s (Slow)" : "240s (Long)"}</span>
+                        <span className="text-xs">{recipe.category === "espresso-based" ? "15s" : "30s"}</span>
+                        <span className="text-xs">{recipe.category === "espresso-based" ? "35s" : "240s"}</span>
                       </div>
                     </div>
 
                     {/* Milk Controls */}
                     {hasMilk && (
                       <>
-                        <div className="border-t border-amber-400 pt-4">
-                          <h3 className="font-bold text-amber-100 mb-3">Milk Parameters</h3>
+                        <div className="border-t border-amber-400 pt-2">
+                          <h3 className="font-bold text-amber-100 mb-1 text-xs">Milk Parameters</h3>
                         </div>
 
                         <div>
-                          <label className="block text-sm font-semibold mb-2 text-amber-100">
+                          <label className="block text-xs font-semibold mb-1 text-amber-100">
                             Milk Type
                           </label>
                           <select
@@ -1118,7 +1259,7 @@ export default function Game() {
                             onChange={(e) =>
                               updateBrewParam("milkType", e.target.value as MilkType)
                             }
-                            className="w-full px-4 py-2 rounded-lg text-gray-800 font-medium"
+                            className="w-full px-2 py-1 rounded-lg text-gray-800 font-medium text-sm"
                           >
                             {milkTypes.filter(m => m !== "none").map((type) => (
                               <option key={type} value={type}>
@@ -1129,7 +1270,7 @@ export default function Game() {
                         </div>
 
                         <div>
-                          <label className="block text-sm font-semibold mb-2 text-amber-100">
+                          <label className="block text-xs font-semibold mb-1 text-amber-100">
                             Milk Temperature: {gameState.brewParams.milkTemp}°F
                           </label>
                           <input
@@ -1143,13 +1284,13 @@ export default function Game() {
                             className="w-full"
                           />
                           <div className="flex justify-between text-xs text-amber-100 mt-1">
-                            <span>120°F (Cool)</span>
-                            <span>180°F (Too Hot)</span>
+                            <span className="text-xs">120°F</span>
+                            <span className="text-xs">180°F</span>
                           </div>
                         </div>
 
                         <div>
-                          <label className="block text-sm font-semibold mb-2 text-amber-100">
+                          <label className="block text-xs font-semibold mb-1 text-amber-100">
                             Foam Amount: {gameState.brewParams.foamAmount}%
                           </label>
                           <input
@@ -1163,8 +1304,8 @@ export default function Game() {
                             className="w-full"
                           />
                           <div className="flex justify-between text-xs text-amber-100 mt-1">
-                            <span>0% (No Foam)</span>
-                            <span>100% (All Foam)</span>
+                            <span className="text-xs">0%</span>
+                            <span className="text-xs">100%</span>
                           </div>
                         </div>
                       </>
@@ -1173,12 +1314,12 @@ export default function Game() {
                     {/* Bloom Time for Pour Over */}
                     {hasBloom && (
                       <>
-                        <div className="border-t border-amber-400 pt-4">
-                          <h3 className="font-bold text-amber-100 mb-3">Pour Over Technique</h3>
+                        <div className="border-t border-amber-400 pt-2">
+                          <h3 className="font-bold text-amber-100 mb-1 text-xs">Pour Over Technique</h3>
                         </div>
 
                         <div>
-                          <label className="block text-sm font-semibold mb-2 text-amber-100">
+                          <label className="block text-xs font-semibold mb-1 text-amber-100">
                             Bloom Time: {gameState.brewParams.bloomTime}s
                           </label>
                           <input
@@ -1192,18 +1333,22 @@ export default function Game() {
                             className="w-full"
                           />
                           <div className="flex justify-between text-xs text-amber-100 mt-1">
-                            <span>15s (Quick)</span>
-                            <span>60s (Long)</span>
+                            <span className="text-xs">15s</span>
+                            <span className="text-xs">60s</span>
                           </div>
                         </div>
                       </>
                     )}
 
+                    {/* Brewing Progress Overlay - Removed: Now using full animation on right side */}
+
                     {/* Brew Button */}
-                    <button
+                    <motion.button
                       onClick={handleBrew}
                       disabled={isCheckingAllergens || isBrewing}
-                      className="w-full bg-white text-amber-900 font-bold px-8 py-4 rounded-xl hover:bg-amber-50 transition-all shadow-lg text-lg mt-4 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      className="w-full bg-white text-amber-900 font-bold px-4 py-2 rounded-xl hover:bg-amber-50 transition-all shadow-lg text-sm mt-2 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                     >
                       {isCheckingAllergens || isBrewing ? (
                         <>
@@ -1226,31 +1371,66 @@ export default function Game() {
                           {isCheckingAllergens ? "Checking Safety..." : "Brewing..."}
                         </>
                       ) : (
-                        recipe.category === "espresso-based" ? "Pull Shot" : `Brew ${recipe.name}`
+                        "Brew"
                       )}
-                    </button>
+                    </motion.button>
                   </div>
-                </div>
+                </motion.div>
               )}
+              </AnimatePresence>
             </div>
 
             {/* Right Column: Results */}
-            <div>
+            <div className="overflow-y-auto pr-2 relative z-10">
+              <AnimatePresence mode="wait">
               {gameState.result && gameState.customer && (
-                <div className="bg-white/90 backdrop-blur rounded-2xl shadow-xl p-6">
-                  <h2 className="text-2xl font-bold text-amber-900 mb-4 flex items-center gap-2">
+                <motion.div
+                  key="results"
+                  initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.9, y: -20 }}
+                  transition={{ duration: 0.5, type: "spring", stiffness: 200 }}
+                  className="bg-white/90 backdrop-blur rounded-xl shadow-xl p-3 relative"
+                >
+                  {/* Particle effects for excellent brews */}
+                  <Particles trigger={showExcellenceParticles} type="stars" count={20} />
+                  <Confetti active={showConfetti} count={40} />
+                  <FloatingMoney amount={moneyAmount} trigger={showMoneyFloat} />
+
+                  {/* Pulsing glow for excellent results */}
+                  <PulsingGlow
+                    active={gameState.result.quality >= 90}
+                    color={gameState.result.quality >= 95 ? "green" : "amber"}
+                  />
+
+                  <h2 className="text-lg font-bold text-amber-900 mb-2 flex items-center gap-2">
                     <span>📊</span>
                     Results
                   </h2>
 
+                  {/* Drink Visual */}
+                  <div className="flex justify-center mb-3">
+                    <DrinkResultVisual
+                      drinkType={gameState.customer.drinkType}
+                      quality={gameState.result.quality}
+                      className="w-32 h-32"
+                      animated={true}
+                    />
+                  </div>
+
                   {/* Quality Score */}
-                  <div className="text-center mb-6">
-                    <div className="text-6xl font-bold text-amber-600 mb-2">
+                  <div className="text-center mb-3">
+                    <motion.div
+                      className="text-4xl font-bold text-amber-600 mb-1"
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      transition={{ delay: 0.2, type: "spring", stiffness: 300, damping: 15 }}
+                    >
                       {gameState.result.quality}
-                    </div>
-                    <div className="text-gray-600 text-lg">Quality Score</div>
+                    </motion.div>
+                    <div className="text-gray-600 text-sm">Quality Score</div>
                     <div
-                      className={`mt-2 px-4 py-2 rounded-lg inline-block ${
+                      className={`mt-1 px-3 py-1 rounded-lg inline-block text-xs ${
                         gameState.result.quality >= 85
                           ? "bg-green-100 text-green-800"
                           : gameState.result.quality >= 70
@@ -1263,102 +1443,166 @@ export default function Game() {
                   </div>
 
                   {/* Breakdown */}
-                  <div className="space-y-3 mb-6">
-                    {Object.entries(gameState.result.breakdown).map(([component, score]) => (
-                      <div key={component} className="bg-gray-50 p-3 rounded-lg">
+                  <div className="space-y-2 mb-3">
+                    {Object.entries(gameState.result.breakdown).map(([component, score], index) => (
+                      <motion.div
+                        key={component}
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.3 + index * 0.1 }}
+                        className="bg-gray-50 p-2 rounded-lg"
+                      >
                         <div className="flex justify-between mb-1">
-                          <span className="text-sm font-semibold text-gray-700">
+                          <span className="text-xs font-semibold text-gray-700">
                             {component}
                           </span>
-                          <span className="text-sm font-bold text-amber-600">
+                          <span className="text-xs font-bold text-amber-600">
                             {score}/100
                           </span>
                         </div>
-                        <div className="w-full bg-gray-200 rounded-full h-2">
-                          <div
-                            className="bg-gradient-to-r from-amber-500 to-orange-500 h-2 rounded-full"
-                            style={{ width: `${score}%` }}
+                        <div className="w-full bg-gray-200 rounded-full h-1.5 overflow-hidden">
+                          <motion.div
+                            className="bg-gradient-to-r from-amber-500 to-orange-500 h-1.5 rounded-full"
+                            initial={{ width: 0 }}
+                            animate={{ width: `${score}%` }}
+                            transition={{ duration: 0.8, delay: 0.4 + index * 0.1, ease: "easeOut" }}
                           />
                         </div>
-                      </div>
+                      </motion.div>
                     ))}
                   </div>
 
+                  {/* Customer Reaction */}
+                  <div className="mb-3">
+                    <CustomerReaction
+                      quality={gameState.result.quality}
+                      customerName={gameState.customer.name}
+                      show={showReaction}
+                      onComplete={() => {
+                        // Reaction animation complete
+                      }}
+                    />
+                  </div>
+
                   {/* Serve Button */}
-                  <button
+                  <motion.button
                     onClick={handleServe}
                     disabled={isServing}
-                    className="w-full bg-gradient-to-r from-green-500 to-emerald-500 text-white font-bold px-8 py-4 rounded-xl hover:from-green-600 hover:to-emerald-600 transition-all shadow-lg text-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    className="w-full bg-gradient-to-r from-green-500 to-emerald-500 text-white font-bold px-4 py-2 rounded-xl hover:from-green-600 hover:to-emerald-600 transition-all shadow-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {isServing ? "Serving..." : `Serve & Collect $${gameState.customer.payment.toFixed(2)}`}
-                  </button>
-                </div>
+                  </motion.button>
+                </motion.div>
               )}
+              </AnimatePresence>
 
               {!gameState.result && !gameState.customer && (
-                <div className="bg-white/90 backdrop-blur rounded-2xl shadow-xl p-6 text-center">
-                  <div className="text-6xl mb-4">☕</div>
-                  <h3 className="text-xl font-semibold text-gray-700 mb-2">
+                <div className="bg-white/90 backdrop-blur rounded-xl shadow-xl p-4 text-center">
+                  <div className="text-5xl mb-3">☕</div>
+                  <h3 className="text-lg font-semibold text-gray-700 mb-1">
                     Waiting for customers
                   </h3>
-                  <p className="text-gray-600">
+                  <p className="text-sm text-gray-600">
                     Open the door and see who walks in
                   </p>
                 </div>
               )}
 
               {!gameState.result && gameState.customer && (
-                <div className="bg-white/90 backdrop-blur rounded-2xl shadow-xl p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-xl font-semibold text-amber-900">
-                      Recipe: {recipe.name}
-                    </h3>
-                    <button
-                      onClick={() => setShowHelp(!showHelp)}
-                      className={`px-4 py-2 rounded-lg font-semibold transition-all ${
-                        showHelp
-                          ? "bg-amber-500 text-white"
-                          : "bg-amber-100 text-amber-900 hover:bg-amber-200"
-                      }`}
-                    >
-                      {showHelp ? "Hide Help" : "Need Help?"}
-                    </button>
-                  </div>
+                <>
+                  {/* Brewing Animation */}
+                  <BrewingAnimation
+                    drinkType={gameState.customer.drinkType}
+                    category={recipe.category}
+                    brewParams={gameState.brewParams}
+                    isBrewing={isBrewing}
+                  />
 
-                  {showHelp && (
-                    <>
-                      <p className="text-sm text-gray-600 mb-4 italic">
-                        {recipe.description}
-                      </p>
-                      <div className="bg-amber-50 p-4 rounded-lg">
-                        <h4 className="font-bold text-amber-900 mb-2">Ideal Parameters:</h4>
-                        <ul className="space-y-1 text-sm text-gray-700">
-                          <li><span className="font-semibold">Grind:</span> {recipe.idealGrind}</li>
-                          <li><span className="font-semibold">Temp:</span> {recipe.idealTemp}°F</li>
-                          <li><span className="font-semibold">Time:</span> {recipe.idealBrewTime}s</li>
-                          {recipe.idealMilkTemp && (
-                            <>
-                              <li><span className="font-semibold">Milk Temp:</span> {recipe.idealMilkTemp}°F</li>
-                              <li><span className="font-semibold">Foam:</span> {recipe.idealFoamAmount}%</li>
-                            </>
-                          )}
-                          {recipe.idealBloomTime && (
-                            <li><span className="font-semibold">Bloom:</span> {recipe.idealBloomTime}s</li>
-                          )}
-                        </ul>
-                      </div>
-                    </>
-                  )}
+                  {/* Help Dialog Overlay */}
+                  <AnimatePresence>
+                    {showHelp && (
+                      <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+                        onClick={() => setShowHelp(false)}
+                      >
+                        <motion.div
+                          initial={{ scale: 0.9, y: 20 }}
+                          animate={{ scale: 1, y: 0 }}
+                          exit={{ scale: 0.9, y: 20 }}
+                          className="bg-white rounded-2xl shadow-2xl p-6 max-w-md w-full"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <div className="flex items-center justify-between mb-4">
+                            <h3 className="text-xl font-bold text-amber-900 flex items-center gap-2">
+                              <span>📖</span>
+                              {recipe.name} Recipe
+                            </h3>
+                            <button
+                              onClick={() => setShowHelp(false)}
+                              className="text-gray-400 hover:text-gray-600 transition-colors"
+                            >
+                              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                          </div>
 
-                  {!showHelp && (
-                    <div className="text-center py-8">
-                      <div className="text-5xl mb-3">🤔</div>
-                      <p className="text-gray-600">
-                        Try your best! Use your brewing knowledge to create the perfect {recipe.name.toLowerCase()}.
-                      </p>
-                    </div>
-                  )}
-                </div>
+                          <div className="bg-amber-50 p-4 rounded-lg mb-4">
+                            <h4 className="font-semibold text-amber-900 mb-3">Ideal Parameters</h4>
+                            <div className="grid grid-cols-2 gap-3 text-sm">
+                              <div>
+                                <div className="text-xs text-gray-600">Grind Size</div>
+                                <div className="font-semibold text-gray-900">{recipe.idealGrind}</div>
+                              </div>
+                              <div>
+                                <div className="text-xs text-gray-600">Temperature</div>
+                                <div className="font-semibold text-gray-900">{recipe.idealTemp}°F</div>
+                              </div>
+                              <div>
+                                <div className="text-xs text-gray-600">Brew Time</div>
+                                <div className="font-semibold text-gray-900">{recipe.idealBrewTime}s</div>
+                              </div>
+                              {recipe.idealMilkTemp && (
+                                <div>
+                                  <div className="text-xs text-gray-600">Milk Temp</div>
+                                  <div className="font-semibold text-gray-900">{recipe.idealMilkTemp}°F</div>
+                                </div>
+                              )}
+                              {recipe.idealBloomTime && (
+                                <div>
+                                  <div className="text-xs text-gray-600">Bloom Time</div>
+                                  <div className="font-semibold text-gray-900">{recipe.idealBloomTime}s</div>
+                                </div>
+                              )}
+                              {recipe.idealFoamAmount !== undefined && (
+                                <div>
+                                  <div className="text-xs text-gray-600">Foam Amount</div>
+                                  <div className="font-semibold text-gray-900">{recipe.idealFoamAmount}%</div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="text-sm text-gray-700 italic">
+                            {recipe.description}
+                          </div>
+
+                          <button
+                            onClick={() => setShowHelp(false)}
+                            className="mt-4 w-full bg-amber-500 text-white font-semibold px-4 py-2 rounded-lg hover:bg-amber-600 transition-all"
+                          >
+                            Got it!
+                          </button>
+                        </motion.div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </>
               )}
             </div>
           </div>

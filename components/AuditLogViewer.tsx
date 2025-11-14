@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { auditLog, type AuditLogEntry, type AuditLogStats } from "@/lib/audit-log";
+import { useState, useEffect } from "react";
+import type { AuditLogEntry, AuditLogStats } from "@/lib/audit-log";
 
 /**
  * Audit Log Viewer Component
@@ -13,6 +13,49 @@ export function AuditLogViewer() {
   const [isOpen, setIsOpen] = useState(false);
   const [filter, setFilter] = useState<"all" | "llm_call" | "tool_call" | "error">("all");
   const [limit, setLimit] = useState(10);
+  const [stats, setStats] = useState<AuditLogStats>({
+    totalCalls: 0,
+    llmCalls: 0,
+    toolCalls: 0,
+    errors: 0,
+    unauthorizedMutations: 0,
+    averageDuration: 0,
+    callsByTool: {},
+  });
+  const [logs, setLogs] = useState<AuditLogEntry[]>([]);
+  const [isCompliant, setIsCompliant] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Fetch logs from server
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const fetchLogs = async () => {
+      setIsLoading(true);
+      try {
+        const params = new URLSearchParams();
+        if (filter !== "all") params.set("type", filter);
+        params.set("limit", limit.toString());
+
+        const response = await fetch(`/api/audit-logs?${params}`);
+        if (response.ok) {
+          const data = await response.json();
+          setStats(data.stats);
+          setLogs(data.logs);
+          setIsCompliant(data.isCompliant);
+        }
+      } catch (error) {
+        console.error("Failed to fetch audit logs:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchLogs();
+    // Refresh every 2 seconds when open
+    const interval = setInterval(fetchLogs, 2000);
+    return () => clearInterval(interval);
+  }, [isOpen, filter, limit]);
 
   if (!isOpen) {
     return (
@@ -22,17 +65,14 @@ export function AuditLogViewer() {
       >
         <span>📋</span>
         Audit Log
+        {stats.llmCalls > 0 && (
+          <span className="bg-white text-purple-600 text-xs font-bold rounded-full px-2 py-0.5">
+            {stats.llmCalls}
+          </span>
+        )}
       </button>
     );
   }
-
-  const stats = auditLog.getStats();
-  const logs = auditLog.getLogs({
-    type: filter !== "all" ? filter : undefined,
-    limit,
-  });
-
-  const isCompliant = auditLog.isCompliant();
 
   return (
     <div className="fixed bottom-4 right-4 w-96 max-h-[600px] bg-white rounded-xl shadow-2xl z-50 flex flex-col overflow-hidden">
@@ -111,17 +151,28 @@ export function AuditLogViewer() {
         </select>
 
         <button
-          onClick={() => {
-            const json = auditLog.exportLogs();
-            const blob = new Blob([json], { type: "application/json" });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement("a");
-            a.href = url;
-            a.download = `audit-log-${Date.now()}.json`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
+          onClick={async () => {
+            try {
+              const response = await fetch("/api/audit-logs");
+              if (response.ok) {
+                const data = await response.json();
+                const json = JSON.stringify({
+                  exportedAt: Date.now(),
+                  ...data,
+                }, null, 2);
+                const blob = new Blob([json], { type: "application/json" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = `audit-log-${Date.now()}.json`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+              }
+            } catch (error) {
+              console.error("Failed to export logs:", error);
+            }
           }}
           className="ml-auto text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded hover:bg-blue-200 transition-all"
         >
@@ -131,9 +182,14 @@ export function AuditLogViewer() {
 
       {/* Log Entries */}
       <div className="flex-1 overflow-y-auto p-3 space-y-2">
-        {logs.length === 0 ? (
+        {isLoading && logs.length === 0 ? (
+          <div className="text-center py-8 text-gray-500 text-sm">
+            Loading logs...
+          </div>
+        ) : logs.length === 0 ? (
           <div className="text-center py-8 text-gray-500 text-sm">
             No log entries yet
+            <div className="text-xs mt-2 opacity-60">Logs will appear as LLM calls are made</div>
           </div>
         ) : (
           logs.map((entry) => (

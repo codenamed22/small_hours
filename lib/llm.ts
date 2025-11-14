@@ -29,9 +29,9 @@ export function getOpenRouterClient(): OpenAI {
   return openrouterClient;
 }
 
-// Get the model to use (defaults to Kimi K2 Thinking)
+// Get the model to use (defaults to Kimi K2 0905 for better JSON compliance)
 export function getModel(): string {
-  return process.env.LLM_MODEL || "moonshotai/kimi-k2-thinking";
+  return process.env.LLM_MODEL || "moonshotai/kimi-k2-0905";
 }
 
 // Sanitize user input to prevent prompt injection
@@ -140,6 +140,73 @@ React in 1-2 sentences. Be natural and reflect the quality of the drink.`,
 }
 
 /**
+ * Extract JSON from thinking model responses
+ * Handles various output formats including reasoning/thinking sections
+ */
+function extractJsonFromThinkingModel(response: string): string | null {
+  // Strategy 1: Look for JSON in markdown code blocks (```json ... ```)
+  const markdownJsonMatch = response.match(/```json\s*([\s\S]*?)\s*```/);
+  if (markdownJsonMatch) {
+    return markdownJsonMatch[1].trim();
+  }
+
+  // Strategy 2: Look for JSON in generic code blocks (``` ... ```)
+  const markdownCodeMatch = response.match(/```\s*([\s\S]*?)\s*```/);
+  if (markdownCodeMatch) {
+    const content = markdownCodeMatch[1].trim();
+    // Check if it starts with { (likely JSON)
+    if (content.startsWith('{')) {
+      return content;
+    }
+  }
+
+  // Strategy 3: Look for JSON after common thinking model delimiters
+  const thinkingPatterns = [
+    /<\/think>/i,           // </think> tag
+    /<\/thinking>/i,        // </thinking> tag
+    /\*\*Answer:\*\*/i,     // **Answer:** marker
+    /Final answer:/i,       // Final answer: marker
+    /Output:/i,             // Output: marker
+  ];
+
+  for (const pattern of thinkingPatterns) {
+    const parts = response.split(pattern);
+    if (parts.length > 1) {
+      // Look for JSON in the part after the delimiter
+      const afterThinking = parts[parts.length - 1];
+      const jsonMatch = afterThinking.match(/\{[\s\S]*?\}/);
+      if (jsonMatch) {
+        return jsonMatch[0];
+      }
+    }
+  }
+
+  // Strategy 4: Find the last valid JSON object in the entire response
+  // This handles cases where thinking is interspersed with the answer
+  const allJsonMatches = response.matchAll(/\{[\s\S]*?\}/g);
+  const matches = Array.from(allJsonMatches);
+
+  // Try from the last match backwards (most likely to be the final answer)
+  for (let i = matches.length - 1; i >= 0; i--) {
+    try {
+      const candidate = matches[i][0];
+      JSON.parse(candidate); // Validate it's proper JSON
+      return candidate;
+    } catch {
+      continue;
+    }
+  }
+
+  // Strategy 5: Look for any JSON-like structure as last resort
+  const simpleJsonMatch = response.match(/\{[^{}]*"order"[^{}]*\}/);
+  if (simpleJsonMatch) {
+    return simpleJsonMatch[0];
+  }
+
+  return null;
+}
+
+/**
  * Generate a dynamic customer with personality
  * Uses RNG to create detailed profile, LLM to generate natural dialogue
  */
@@ -169,41 +236,66 @@ export async function generateCustomer(
         {
           role: "system",
           content: `You are a customer at a cozy café called "Small Hours".
-Generate ONLY a JSON object with your order (no other text):
-
-{
-  "order": "Natural language order for the drink, 1 sentence, stay in character"
-}
+Respond with ONLY a JSON object, no other text.
 
 Character: ${contextParts.join(". ")}.
 You want: ${recipe.name}
 ${profile.milkPreference ? `Preferred milk: ${profile.milkPreference}` : ""}
 
-Be natural and concise. Match your mood and time constraint.`
+Output format:
+{
+  "order": "Natural language order for the drink, 1 sentence, stay in character"
+}
+
+Match your mood and time constraint. Be natural and concise.`
         },
         {
           role: "user",
-          content: "Place your order"
+          content: "Place your order as JSON"
         }
       ],
-      max_tokens: 80,
+      max_tokens: 100,
       temperature: 0.9,
     });
 
+    // Debug: Log the raw API response
+    if (process.env.NODE_ENV === "development") {
+      console.log("LLM API Response:", {
+        model,
+        hasChoices: !!completion.choices,
+        choicesLength: completion.choices?.length,
+        firstChoice: completion.choices?.[0],
+        finishReason: completion.choices?.[0]?.finish_reason,
+      });
+    }
+
     const response = completion.choices[0]?.message?.content || "";
 
-    // Parse the JSON response
+    // Parse the JSON response - handle thinking models properly
     let order: string;
     try {
-      const jsonMatch = response.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        const parsed = JSON.parse(jsonMatch[0]);
+      // Extract JSON from thinking model responses
+      // Thinking models may include reasoning before the final answer
+      const extracted = extractJsonFromThinkingModel(response);
+
+      if (extracted) {
+        const parsed = JSON.parse(extracted);
         order = parsed.order || `I'd like a ${recipe.name}, please.`;
       } else {
-        throw new Error("No JSON found");
+        throw new Error("No valid JSON found in response");
       }
     } catch (parseError) {
-      console.error("Failed to parse LLM response:", response);
+      // Only log in development to reduce noise
+      if (process.env.NODE_ENV === "development") {
+        console.warn("Failed to parse LLM response, using fallback:", {
+          model: getModel(),
+          error: parseError instanceof Error ? parseError.message : String(parseError),
+          responseLength: response.length,
+          responsePreview: response.slice(0, 300),
+          fullResponse: response.length < 500 ? response : undefined,
+        });
+      }
+
       // Fallback based on archetype
       if (profile.archetype.timeConstraint === "rushed") {
         order = `Quick ${recipe.name}, please!`;
