@@ -83,8 +83,6 @@ Built with [Next.js](https://nextjs.org) • [OpenRouter](https://openrouter.ai)
 
 <img width="1260" height="819" alt="image" src="https://github.com/user-attachments/assets/b7d6be2e-9475-4605-9e0d-0db74cd166c0" />
 
-<img width="1260" height="819" alt="image" src="https://github.com/user-attachments/assets/6501f722-8d0c-403a-adb3-2cbf42da7dbf" />
-
 <img width="1457" height="1031" alt="image" src="https://github.com/user-attachments/assets/2786b1eb-6ad3-4571-a768-83a1a6349579" />
 
 <img width="1266" height="339" alt="image" src="https://github.com/user-attachments/assets/9de33001-5d58-4d72-bdcc-78040c62610e" />
