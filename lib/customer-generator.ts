@@ -270,10 +270,9 @@ export function generateCustomerProfile(
   }
 
   // Build personality description for LLM
-  const personality = `${archetype.description}. Traits: ${archetype.personalityTraits.join(", ")}. ${
-    archetype.timeConstraint === "rushed" ? "In a hurry." :
-    archetype.timeConstraint === "relaxed" ? "Taking their time." : ""
-  }`;
+  const personality = `${archetype.description}. Traits: ${archetype.personalityTraits.join(", ")}. ${archetype.timeConstraint === "rushed" ? "In a hurry." :
+      archetype.timeConstraint === "relaxed" ? "Taking their time." : ""
+    }`;
 
   return {
     name,
@@ -300,6 +299,9 @@ export function calculatePayment(
     cappuccino: 4.5,
     pourover: 5,
     aeropress: 4,
+    mocha: 5.5,
+    americano: 3.5,
+    matcha: 5.0,
   };
 
   const basePrice = basePayments[drinkType];

@@ -9,6 +9,7 @@
  */
 
 import type {
+  Equipment,
   DrinkType,
   BrewParameters,
   Condition,
@@ -27,6 +28,7 @@ import { createInventory } from "./inventory";
 import { createQueueState } from "./ticketing";
 import { createMemoryState } from "./customer-memory";
 import { createDayState } from "./day-structure";
+import { createDefaultEquipment, applyEquipmentBonus } from "./equipment";
 
 // ============================================================================
 // CONSTANTS - Configuration constants for the game
@@ -175,6 +177,28 @@ export type {
   DaySummary,
 } from "./day-structure";
 
+// Re-export equipment system
+export {
+  createDefaultEquipment,
+  getAvailableUpgrades,
+  getCurrentEquipment,
+  getEquipmentValue,
+  purchaseEquipment,
+  canAffordAnyUpgrade,
+  getCheapestUpgrade,
+  calculateEquipmentBonus,
+  applyEquipmentBonus,
+} from "./equipment";
+export type {
+  Equipment,
+  EspressoMachineTier,
+  GrinderTier,
+  MilkSteamerTier,
+  EquipmentItem,
+  EquipmentEffects,
+  PurchaseResult,
+} from "./equipment";
+
 // ============================================================================
 // VALIDATION - Ensure data integrity
 // ============================================================================
@@ -281,7 +305,8 @@ Object.values(RECIPES).forEach(validateRuleWeights);
 
 export function brewDrink(
   drinkType: DrinkType,
-  params: BrewParameters
+  params: BrewParameters,
+  equipment?: Equipment
 ): BrewResult {
   // Validate inputs
   validateBrewParameters(params);
@@ -311,9 +336,14 @@ export function brewDrink(
   });
 
   // Normalize quality score
-  const quality = totalWeight > 0
+  let quality = totalWeight > 0
     ? Math.round(totalWeightedScore / totalWeight)
     : 0;
+
+  // Apply equipment bonuses if equipment is provided
+  if (equipment) {
+    quality = applyEquipmentBonus(quality, equipment, recipe.category);
+  }
 
   // Generate feedback
   const feedback = generateFeedback(quality, drinkType);
@@ -359,6 +389,14 @@ export function createInitialState(): GameState {
     queue: createQueueState(),
     customerMemory: createMemoryState(),
     dayState: createDayState(),
+    equipment: createDefaultEquipment(),
+    reputation: 50, // Start with neutral reputation
+    eventsHistory: [],
+    eventStats: {
+      totalEvents: 0,
+      eventCounts: {},
+      lastEventTimestamp: undefined,
+    },
   };
 }
 
@@ -395,7 +433,10 @@ export function createStaticCustomer(drinkType: DrinkType = "espresso"): Custome
     latte: { order: "I'll have a latte, please", payment: 4.5 },
     cappuccino: { order: "Cappuccino, extra foam!", payment: 4.5 },
     pourover: { order: "Pour over, take your time", payment: 5 },
-    aeropress: { order: "Aeropress, medium roast", payment: 4 }
+    aeropress: { order: "Aeropress, medium roast", payment: 4 },
+    mocha: { order: "I'd love a mocha", payment: 5.5 },
+    americano: { order: "Americano, black", payment: 3.5 },
+    matcha: { order: "Matcha latte please", payment: 5.0 },
   };
 
   const drink = drinks[drinkType];

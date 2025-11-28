@@ -255,7 +255,7 @@ function LogEntry({ entry }: { entry: AuditLogEntry }) {
               <div className="text-xs opacity-90">{entry.prompt}</div>
             </div>
           )}
-          {entry.toolArgs && (
+          {!!entry.toolArgs && (
             <div>
               <div className="font-semibold">Args:</div>
               <pre className="text-xs opacity-90 overflow-x-auto">

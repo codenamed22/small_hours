@@ -175,6 +175,9 @@ export function getEstimatedWaitTime(
     cappuccino: 60,
     pourover: 120,
     aeropress: 90,
+    mocha: 90,
+    americano: 45,
+    matcha: 60,
   };
 
   // Calculate total wait time based on drinks ahead

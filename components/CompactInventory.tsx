@@ -8,7 +8,7 @@
 
 import { motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
-import type { Inventory } from "@/lib/game-engine";
+import type { Inventory } from "@/lib/types";
 
 interface CompactInventoryProps {
   inventory: Inventory;
@@ -50,13 +50,13 @@ export function CompactInventory({ inventory, className = "" }: CompactInventory
   // Get milk types that have stock with safety check
   const milkTypes = inventory?.milks
     ? Object.entries(inventory.milks)
-        .filter(([type, amount]) => type !== "none" && amount > 0)
-        .map(([type, amount]) => ({
-          type,
-          amount,
-          status: getStockStatus(amount, 3000),
-          percentage: Math.min((amount / 3000) * 100, 100),
-        }))
+      .filter(([type, amount]) => type !== "none" && amount > 0)
+      .map(([type, amount]) => ({
+        type,
+        amount,
+        status: getStockStatus(amount, 3000),
+        percentage: Math.min((amount / 3000) * 100, 100),
+      }))
     : [];
 
   // Detect depletion and trigger animations
@@ -99,16 +99,16 @@ export function CompactInventory({ inventory, className = "" }: CompactInventory
         animate={
           beansDepletedRecently
             ? {
-                scale: [1, 1.1, 1],
-                boxShadow: [
-                  "0 0 0px rgba(251, 146, 60, 0)",
-                  "0 0 20px rgba(251, 146, 60, 0.8)",
-                  "0 0 0px rgba(251, 146, 60, 0)",
-                ]
-              }
+              scale: [1, 1.1, 1],
+              boxShadow: [
+                "0 0 0px rgba(251, 146, 60, 0)",
+                "0 0 20px rgba(251, 146, 60, 0.8)",
+                "0 0 0px rgba(251, 146, 60, 0)",
+              ]
+            }
             : beansStatus === "critical"
-            ? { scale: [1, 1.05, 1] }
-            : {}
+              ? { scale: [1, 1.05, 1] }
+              : {}
         }
         transition={{
           duration: beansDepletedRecently ? 0.6 : 1,
@@ -177,12 +177,12 @@ export function CompactInventory({ inventory, className = "" }: CompactInventory
         const isDepleting = depletedMilks.has(type);
 
         return (
-        <motion.div
-          key={type}
-          className={`flex items-center gap-2 px-3 py-1.5 rounded-lg ${statusColors[status].bg}`}
-          animate={
-            isDepleting
-              ? {
+          <motion.div
+            key={type}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg ${statusColors[status].bg}`}
+            animate={
+              isDepleting
+                ? {
                   scale: [1, 1.1, 1],
                   boxShadow: [
                     "0 0 0px rgba(251, 146, 60, 0)",
@@ -190,63 +190,63 @@ export function CompactInventory({ inventory, className = "" }: CompactInventory
                     "0 0 0px rgba(251, 146, 60, 0)",
                   ]
                 }
-              : status === "critical"
-              ? { scale: [1, 1.05, 1] }
-              : {}
-          }
-          transition={{
-            duration: isDepleting ? 0.6 : 1,
-            repeat: isDepleting ? 0 : (status === "critical" ? Infinity : 0)
-          }}
-        >
-          {/* Milk Bottle Icon */}
-          <div className="relative w-6 h-10">
-            <svg viewBox="0 0 30 50" fill="none">
-              {/* Bottle outline */}
-              <path
-                d="M10 8 L10 5 Q10 3 12 3 L18 3 Q20 3 20 5 L20 8 L22 10 L22 45 Q22 48 18 48 L12 48 Q8 48 8 45 L8 10 Z"
-                fill="rgba(255, 255, 255, 0.8)"
-                stroke="#666"
-                strokeWidth="1"
-              />
+                : status === "critical"
+                  ? { scale: [1, 1.05, 1] }
+                  : {}
+            }
+            transition={{
+              duration: isDepleting ? 0.6 : 1,
+              repeat: isDepleting ? 0 : (status === "critical" ? Infinity : 0)
+            }}
+          >
+            {/* Milk Bottle Icon */}
+            <div className="relative w-6 h-10">
+              <svg viewBox="0 0 30 50" fill="none">
+                {/* Bottle outline */}
+                <path
+                  d="M10 8 L10 5 Q10 3 12 3 L18 3 Q20 3 20 5 L20 8 L22 10 L22 45 Q22 48 18 48 L12 48 Q8 48 8 45 L8 10 Z"
+                  fill="rgba(255, 255, 255, 0.8)"
+                  stroke="#666"
+                  strokeWidth="1"
+                />
 
-              {/* Milk fill level */}
-              <defs>
-                <clipPath id={`bottle-clip-${type}`}>
-                  <path d="M10 8 L10 5 Q10 3 12 3 L18 3 Q20 3 20 5 L20 8 L22 10 L22 45 Q22 48 18 48 L12 48 Q8 48 8 45 L8 10 Z" />
-                </clipPath>
-              </defs>
+                {/* Milk fill level */}
+                <defs>
+                  <clipPath id={`bottle-clip-${type}`}>
+                    <path d="M10 8 L10 5 Q10 3 12 3 L18 3 Q20 3 20 5 L20 8 L22 10 L22 45 Q22 48 18 48 L12 48 Q8 48 8 45 L8 10 Z" />
+                  </clipPath>
+                </defs>
 
-              <motion.rect
-                x="8"
-                y={48 - (percentage / 100) * 40}
-                width="14"
-                height={(percentage / 100) * 40}
-                fill={statusColors[status].fill}
-                opacity="0.5"
-                clipPath={`url(#bottle-clip-${type})`}
-                initial={{ height: 0 }}
-                animate={{ height: (percentage / 100) * 40 }}
-                transition={{ duration: 0.5 }}
-              />
+                <motion.rect
+                  x="8"
+                  y={48 - (percentage / 100) * 40}
+                  width="14"
+                  height={(percentage / 100) * 40}
+                  fill={statusColors[status].fill}
+                  opacity="0.5"
+                  clipPath={`url(#bottle-clip-${type})`}
+                  initial={{ height: 0 }}
+                  animate={{ height: (percentage / 100) * 40 }}
+                  transition={{ duration: 0.5 }}
+                />
 
-              {/* Cap */}
-              <rect x="11" y="1" width="8" height="2" rx="1" fill="#666" />
-            </svg>
-          </div>
+                {/* Cap */}
+                <rect x="11" y="1" width="8" height="2" rx="1" fill="#666" />
+              </svg>
+            </div>
 
-          {/* Amount text */}
-          <div className="flex flex-col items-start">
-            <span className={`text-xs font-bold ${statusColors[status].text}`}>
-              {amount}ml
-            </span>
-            <span className="text-xs text-gray-600 capitalize">{type}</span>
-          </div>
+            {/* Amount text */}
+            <div className="flex flex-col items-start">
+              <span className={`text-xs font-bold ${statusColors[status].text}`}>
+                {amount}ml
+              </span>
+              <span className="text-xs text-gray-600 capitalize">{type}</span>
+            </div>
 
-          {status === "critical" && (
-            <span className="text-xs">⚠️</span>
-          )}
-        </motion.div>
+            {status === "critical" && (
+              <span className="text-xs">⚠️</span>
+            )}
+          </motion.div>
         );
       })}
     </div>

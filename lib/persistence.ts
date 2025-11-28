@@ -52,6 +52,11 @@ interface SerializedGameState {
   queue?: any;
   customerMemory?: SerializedMemoryState;
   dayState?: any;
+  equipment?: any;
+  activeEvent?: any;
+  eventsHistory?: any;
+  reputation?: number;
+  eventStats?: any;
 }
 
 interface SaveData {
@@ -94,6 +99,11 @@ export function serializeGameState(state: GameState): SerializedGameState {
       ? serializeMemoryState(state.customerMemory)
       : undefined,
     dayState: state.dayState,
+    equipment: state.equipment,
+    activeEvent: state.activeEvent,
+    eventsHistory: state.eventsHistory,
+    reputation: state.reputation,
+    eventStats: state.eventStats,
   };
 }
 
@@ -141,6 +151,11 @@ export function deserializeGameState(serialized: SerializedGameState): GameState
       ? deserializeMemoryState(serialized.customerMemory)
       : undefined,
     dayState: serialized.dayState,
+    equipment: serialized.equipment,
+    activeEvent: serialized.activeEvent,
+    eventsHistory: serialized.eventsHistory,
+    reputation: serialized.reputation,
+    eventStats: serialized.eventStats,
   };
 }
 

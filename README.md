@@ -1,8 +1,8 @@
 <img width="1260" height="819" alt="image" src="https://github.com/user-attachments/assets/efdb454a-0ec4-4fc0-a68e-9c7aa027434f" /># Small Hours ☕
 
-A coffee shop simulator where brewing matters and customers have stories.
+A café management simulator where every espresso matters and customers remember your face.
 
-**Current Status:** Phase 0 - 50% Complete | **[Read STATUS.md for full details →](./STATUS.md)**
+**Current Status:** Phase 0 Complete (95%) • Phase 1 Active (60%) | **[Read STATUS.md for full details →](./STATUS.md)**
 
 ---
 
@@ -15,32 +15,46 @@ npm install
 # Configure (add your OpenRouter API key)
 cp .env.example .env.local
 
-# Run
+# Run dev server
 npm run dev
+
+# Run tests
+npm test
 ```
 
 Visit http://localhost:3000/game to play.
 
 ---
 
-## What Works Now
+## ✨ What's Playable Now
 
-- **5 Drink Types:** Espresso, Latte, Cappuccino, Pour Over, Aeropress
-- **Quality Scoring:** Tolerance-based scoring (0-100) with component breakdown
-- **Dynamic UI:** Controls change based on drink type
-- **Production Code:** Clean architecture, TypeScript, no tests yet
+**Core Systems:**
+- **8 Drink Types:** Espresso, Latte, Cappuccino, Pour Over, Aeropress, Mocha, Americano, Matcha
+- **Full Day Cycle:** Prep phase (restock/shop) → Service (customers) → Debrief (performance review)
+- **Dynamic Customers:** LLM-powered personalities with unique orders and moods
+- **Customer Memory:** Build relationships from stranger → regular → favorite (5 levels)
+- **Equipment Progression:** Shop with 4 categories × 3 tiers (12 upgrades total)
+- **Inventory Management:** Stock tracking, depletion, low-stock warnings, restock system
+- **Quality Scoring:** Celsius-based brewing with equipment bonuses (0-100 scale)
+- **Save/Load:** LocalStorage persistence with import/export
+
+**Progression Features:**
+- 💰 Money system with daily earnings
+- 📈 Quality bonuses from better equipment (+5 to +10 per tier)
+- 🏪 Equipment shop (espresso machines, grinders, milk steamers, brewing stations)
+- 👥 Relationship tracking (customers remember quality and preferences)
+- 📊 Day-to-day performance metrics
 
 ---
 
-## What's Missing
+## 🚧 What's Coming Next
 
-- Tests (0% coverage)
-- Inventory system
-- LLM integration in game (exists but not connected)
-- Customer personas and memory
-- Ticketing/queue system
-- Allergen safety system
-- Save/load
+**Phase 1 Completion:**
+- ⏭️ **Events System:** Random/scheduled events (coffee critic, rush hour, breakdowns)
+- ⏭️ **Goals & Achievements:** Daily goals and long-term milestones
+- ⏭️ **Reputation System:** Quality-based progression with premium unlocks
+- ⏭️ Allergen safety system
+- ⏭️ Additional tests for new systems
 
 **See [STATUS.md](./STATUS.md) for complete analysis, roadmap, and next steps.**
 
@@ -48,29 +62,44 @@ Visit http://localhost:3000/game to play.
 
 ## Tech Stack
 
-- Next.js 16.0.1 + Turbopack
-- TypeScript (strict mode)
-- Node.js 24.11.0 LTS
-- OpenRouter (Kimi K2 Thinking)
-- Tailwind CSS
+- **Framework:** Next.js 16.0.1 + Turbopack
+- **Language:** TypeScript (strict mode)
+- **Runtime:** Node.js 24.11.0 LTS
+- **LLM:** OpenRouter (Kimi K2, Kimi K2 Thinking)
+- **Styling:** Tailwind CSS
+- **Animation:** Framer Motion
+- **Testing:** Vitest (77 tests passing)
 
 ---
 
 ## Documentation
 
 - **[STATUS.md](./STATUS.md)** - Complete status, gaps, roadmap (start here)
+- **[PHASES.md](./PHASES.md)** - Phase tracking and completion criteria
 - **[Plan.md](./Plan.md)** - Original design document
+- **[DEVELOPMENT_PLAN.md](./DEVELOPMENT_PLAN.md)** - Development roadmap
 
 ---
 
 ## Development
 
 ```bash
-npm run dev         # Start dev server
+npm run dev         # Start dev server (localhost:3000)
 npm run build       # Build for production
 npm run type-check  # TypeScript validation
 npm run lint        # ESLint
+npm test            # Run tests (77 tests)
 ```
+
+### Testing
+
+```bash
+npm test                    # Run all tests
+npm test -- lib/scoring     # Run specific test file
+npm test -- --coverage      # Generate coverage report
+```
+
+**Current test coverage:** 77 tests across 3 files (scoring, game-engine, inventory)
 
 ---
 

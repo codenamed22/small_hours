@@ -39,10 +39,10 @@ export function DrinkResultVisual({
   const MotionWrapper = animated ? motion.div : "div";
   const animationProps = animated
     ? {
-        initial: { scale: 0, rotate: -15 },
-        animate: { scale: 1, rotate: 0 },
-        transition: { type: "spring", stiffness: 200, damping: 15 },
-      }
+      initial: { scale: 0, rotate: -15 },
+      animate: { scale: 1, rotate: 0 },
+      transition: { type: "spring" as const, stiffness: 200, damping: 15 },
+    }
     : {};
 
   return (
@@ -145,8 +145,8 @@ function LatteVisual({ quality }: { quality: QualityLevel }) {
           {/* Beautiful rosetta latte art */}
           <path d="M50 30 Q48 32 50 34 Q52 32 50 30" fill="#8D6E63" opacity="0.7" />
           <path d="M50 34 Q46 36 50 40 Q54 36 50 34" fill="#8D6E63" opacity="0.7" />
-          <path d="M48 32 Q44 34 46 37" fill="#8D6E63" opacity="0.6" stroke="#8D6E63" strokeWidth="0.5" fill="none" />
-          <path d="M52 32 Q56 34 54 37" fill="#8D6E63" opacity="0.6" stroke="#8D6E63" strokeWidth="0.5" fill="none" />
+          <path d="M48 32 Q44 34 46 37" opacity="0.6" stroke="#8D6E63" strokeWidth="0.5" fill="none" />
+          <path d="M52 32 Q56 34 54 37" opacity="0.6" stroke="#8D6E63" strokeWidth="0.5" fill="none" />
         </>
       )}
     </svg>

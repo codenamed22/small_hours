@@ -6,7 +6,7 @@
 
 import { motion } from "framer-motion";
 
-type Mood = "happy" | "neutral" | "stressed" | "tired";
+export type Mood = "happy" | "neutral" | "stressed" | "tired";
 
 interface CustomerAvatarProps {
   mood?: Mood;

@@ -118,6 +118,59 @@ export interface GameState {
   queue?: QueueState;
   customerMemory?: CustomerMemoryState;
   dayState?: DayState;
+  equipment?: Equipment;
+  activeEvent?: GameEvent;
+  eventsHistory?: EventHistoryEntry[];
+  reputation?: number; // 0-100 scale
+  eventStats?: EventStats;
+}
+
+export interface EventStats {
+  totalEvents: number;
+  eventCounts: Record<string, number>;
+  lastEventTimestamp?: number;
+}
+
+export interface GameEvent {
+  id: string;
+  title: string;
+  description: string;
+  type: "positive" | "negative" | "neutral";
+  trigger: "random_service" | "start_day" | "end_day";
+  probability: number;
+  condition?: (state: GameState) => boolean;
+  effects?: {
+    money?: number;
+    reputation?: number;
+    inventory?: {
+      beans?: number;
+      milk?: number;
+      syrup?: number;
+      pastry?: number;
+    };
+  };
+  choices?: {
+    text: string;
+    effects?: any;
+  }[];
+}
+
+export interface EventHistoryEntry {
+  eventId: string;
+  day: number;
+  timestamp: number;
+}
+
+// Equipment types (re-exported from equipment.ts for convenience)
+export type EspressoMachineTier = "basic" | "professional" | "commercial";
+export type GrinderTier = "hand" | "burr" | "commercial";
+export type MilkSteamerTier = "basic" | "auto" | "professional";
+
+export interface Equipment {
+  espressoMachine: EspressoMachineTier;
+  grinder: GrinderTier;
+  milkSteamer: MilkSteamerTier;
+  brewingStations: number; // 1-3
 }
 
 // Day structure types (re-exported from day-structure.ts)
